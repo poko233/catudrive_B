@@ -1,0 +1,30 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/met4s0ft3/tecnologico.metasoft-bolivia.com/api
+
+    # 1. Borrar TODO excepto .env, storage y .htaccess
+    - find $DEPLOYPATH -mindepth 1 -not \( -name ".env" -o -name "storage" -o -name ".htaccess" \) -exec rm -rf {} \; 2>/dev/null || true
+
+    # 2. Copiar archivos frescos del repositorio
+    - /bin/cp -R ./* $DEPLOYPATH
+
+    # 3. Entrar al proyecto
+    - cd $DEPLOYPATH
+
+    # 4. Instalar dependencias
+    - composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+    # 5. Ejecutar migraciones con PHP 8.4
+    - /opt/cpanel/ea-php84/root/usr/bin/php artisan migrate --force
+
+    # 6. Limpiar configuración cacheada anterior (para evitar valores antiguos)
+    - /opt/cpanel/ea-php84/root/usr/bin/php artisan config:clear
+
+    # 7. Cachear configuración, rutas y vistas con PHP 8.4
+    - /opt/cpanel/ea-php84/root/usr/bin/php artisan config:cache
+    - /opt/cpanel/ea-php84/root/usr/bin/php artisan route:cache
+    - /opt/cpanel/ea-php84/root/usr/bin/php artisan view:cache
+
+    # 8. Permisos de almacenamiento
+    - chmod -R 775 $DEPLOYPATH/storage $DEPLOYPATH/bootstrap/cache
