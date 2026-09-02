@@ -90,27 +90,105 @@ class DatabaseSeeder extends Seeder
         $rolIds = DB::table('rol')->pluck('id', 'rol');
         $this->command->info('✅ Roles OK');
 
-        // =====================================================================
-        // 5. MÓDULOS (Dashboard, Configuracion)
-        // =====================================================================
-        $modulos = [
-            ['modulo' => 'Dashboard', 'icono' => 'dashboard', 'descripcion' => 'Panel principal del sistema'],
-            ['modulo' => 'Configuracion', 'icono' => 'settings', 'descripcion' => 'Panel de administración del sistema'],
-        ];
-        foreach ($modulos as $mod) {
-            DB::table('modulo')->updateOrInsert(
-                ['modulo' => $mod['modulo']],
-                [
-                    'descripcion' => $mod['descripcion'],
-                    'icono' => $mod['icono'],
-                    'estado' => 'Activo',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
-        }
-        $moduloIds = DB::table('modulo')->pluck('id', 'modulo');
-        $this->command->info('✅ Módulos OK');
+       // =====================================================================
+// 5. MÓDULOS
+// =====================================================================
+//
+// orden controla la posición global en el Sidebar.
+//
+// 1 = Dashboard
+// 2 = Configuracion
+//
+// Los módulos nuevos deberán continuar:
+// 3, 4, 5...
+//
+// =====================================================================
+
+$modulos = [
+    [
+        'modulo' =>
+            'Dashboard',
+
+        'icono' =>
+            'dashboard',
+
+        'descripcion' =>
+            'Panel principal del sistema',
+
+        'orden' =>
+            1,
+    ],
+
+    [
+        'modulo' =>
+            'Configuracion',
+
+        'icono' =>
+            'settings',
+
+        'descripcion' =>
+            'Panel de administración del sistema',
+
+        'orden' =>
+            2,
+    ],
+];
+
+foreach (
+    $modulos
+    as $mod
+) {
+    DB::table(
+        'modulo'
+    )
+        ->updateOrInsert(
+            [
+                'modulo' =>
+                    $mod[
+                        'modulo'
+                    ],
+            ],
+
+            [
+                'descripcion' =>
+                    $mod[
+                        'descripcion'
+                    ],
+
+                'icono' =>
+                    $mod[
+                        'icono'
+                    ],
+
+                'orden' =>
+                    $mod[
+                        'orden'
+                    ],
+
+                'estado' =>
+                    'Activo',
+
+                'created_at' =>
+                    now(),
+
+                'updated_at' =>
+                    now(),
+            ]
+        );
+}
+
+$moduloIds =
+    DB::table(
+        'modulo'
+    )
+        ->pluck(
+            'id',
+            'modulo'
+        );
+
+$this->command->info(
+    '✅ Módulos OK'
+);
 
         // =====================================================================
         // 6. FORMULARIOS
