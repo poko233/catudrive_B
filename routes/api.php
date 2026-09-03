@@ -10,3 +10,4 @@ require __DIR__ . '/../app/Modules/Formulario/Routes/api.php';
 require __DIR__ . '/../app/Modules/Modulo/Routes/api.php';
 require __DIR__ . '/../app/Modules/Permiso/Routes/api.php';
 require __DIR__ . '/../app/Modules/RecursosHumanos/Routes/api.php';
+require __DIR__ . '/../app/Modules/Chofer/Routes/api.php';
