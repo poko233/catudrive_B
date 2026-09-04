@@ -27,6 +27,7 @@ class VehiculoController
         $vehiculos = Vehiculo::query()
             ->with([
                 'categoria',
+                'propietario.chofer.usuario',
                 'pisos' => function ($q) {
                     $q->orderBy('orden')->orderBy('numero');
                 },
@@ -56,6 +57,7 @@ class VehiculoController
     {
         $vehiculo->load([
             'categoria',
+            'propietario.chofer.usuario',
             'pisos' => function ($q) {
                 $q->orderBy('orden')->orderBy('numero');
             },

@@ -28,10 +28,10 @@ class ChoferController extends Controller
                 $this->service
                     ->listar()
                     ->map(
-                        fn ($chofer) =>
-                            (new ChoferResource(
-                                $chofer
-                            ))->resolve(
+                        fn($chofer) =>
+                        (new ChoferResource(
+                            $chofer
+                        ))->resolve(
                                 $request
                             )
                     )
@@ -51,8 +51,8 @@ class ChoferController extends Controller
                             $chofer
                         )
                 ))->resolve(
-                    $request
-                ),
+                        $request
+                    ),
         ]);
     }
 
@@ -73,8 +73,8 @@ class ChoferController extends Controller
                 (new ChoferResource(
                     $chofer
                 ))->resolve(
-                    $request
-                ),
+                        $request
+                    ),
         ], 201);
     }
 
@@ -97,8 +97,8 @@ class ChoferController extends Controller
                 (new ChoferResource(
                     $item
                 ))->resolve(
-                    $request
-                ),
+                        $request
+                    ),
         ]);
     }
 
@@ -123,8 +123,8 @@ class ChoferController extends Controller
                 (new ChoferResource(
                     $item
                 ))->resolve(
-                    $request
-                ),
+                        $request
+                    ),
         ]);
     }
 
@@ -149,8 +149,8 @@ class ChoferController extends Controller
                 (new ChoferResource(
                     $item
                 ))->resolve(
-                    $request
-                ),
+                        $request
+                    ),
         ]);
     }
 
@@ -168,8 +168,8 @@ class ChoferController extends Controller
             (new ChoferResource(
                 $item
             ))->resolve(
-                $request
-            );
+                    $request
+                );
 
         return response()->json([
             'message' =>
@@ -199,6 +199,26 @@ class ChoferController extends Controller
                     ->historialAsignaciones(
                         $chofer
                     ),
+        ]);
+    }
+    public function search(
+        Request $request
+    ): JsonResponse {
+        $termino = (string) $request->query('search', '');
+
+        return response()->json([
+            'choferes' =>
+                $this->service
+                    ->buscar($termino)
+                    ->map(
+                        fn($chofer) =>
+                        (new ChoferResource(
+                            $chofer
+                        ))->resolve(
+                                $request
+                            )
+                    )
+                    ->values(),
         ]);
     }
 }

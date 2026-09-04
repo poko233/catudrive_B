@@ -6,6 +6,7 @@ namespace App\Modules\Vehiculo\Services;
 
 use App\Shared\Models\Asiento;
 use App\Shared\Models\Piso;
+use App\Shared\Models\Propietario;
 use App\Shared\Models\Vehiculo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,12 +25,13 @@ class VehiculoService
             $vehiculoData = $this->extractVehiculoData($data);
             $vehiculo = Vehiculo::query()->create($vehiculoData);
             $this->syncPisos($vehiculo, $data['pisos'] ?? []);
+            $this->syncPropietario($vehiculo, $data['id_chofer_propietario'] ?? null);
             return $vehiculo;
         });
 
         $this->recalcularCapacidad($vehiculo);
 
-        return $vehiculo->fresh(); // solo datos del vehículo, sin relaciones
+        return $this->loadRelations($vehiculo);
     }
 
     /**
@@ -44,6 +46,7 @@ class VehiculoService
             $vehiculoData = $this->extractVehiculoData($data);
             $vehiculo->update($vehiculoData);
             $this->syncPisos($vehiculo, $data['pisos'] ?? []);
+            $this->syncPropietario($vehiculo, $data['id_chofer_propietario'] ?? null);
             return $vehiculo;
         });
 
@@ -223,6 +226,7 @@ class VehiculoService
     {
         return $vehiculo->load([
             'categoria',
+            'propietario.chofer.usuario',
             'pisos' => function ($query) {
                 $query->orderBy('orden')->orderBy('numero');
             },
@@ -230,5 +234,18 @@ class VehiculoService
                 $query->orderBy('fila')->orderBy('columna');
             },
         ]);
+    }
+    private function syncPropietario(Vehiculo $vehiculo, ?int $idChofer): void
+    {
+        if ($idChofer === null) {
+            // Si se envía null explícitamente, se elimina el propietario existente.
+            $vehiculo->propietario()->delete();
+            return;
+        }
+
+        Propietario::updateOrCreate(
+            ['id_vehiculo' => $vehiculo->id],
+            ['id_chofer' => $idChofer]
+        );
     }
 }
