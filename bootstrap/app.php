@@ -119,6 +119,8 @@ return Application::configure(
 
                 'security.headers' =>
                     SecurityHeaders::class,
+                'permission' => \App\Shared\Middleware\CheckPermission::class,
+
             ]);
         }
     )
@@ -142,10 +144,7 @@ return Application::configure(
             */
 
             $exceptions->render(
-                function (
-                    AuthenticationException $exception,
-                    Request $request
-                ) {
+                function (AuthenticationException $exception, Request $request) {
                     return SecurityResponse::unauthenticated(
                         'No autenticado.'
                     );

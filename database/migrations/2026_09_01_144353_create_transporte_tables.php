@@ -19,15 +19,19 @@ return new class extends Migration {
         // ─── Vehículo ─────────────────────────────────────────────
         Schema::create('vehiculo', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('id_categoria')
+                ->constrained('categoria_vehiculo')
+                ->onDelete('restrict');
             $table->string('placa', 255)->unique();
             $table->string('tipo', 255);
             $table->string('marca', 255);
             $table->string('modelo', 255);
             $table->string('color', 255)->nullable();
-            $table->string('capacidad', 255)->nullable();
+            $table->integer('capacidad')->default(0);
             $table->enum('estado', ['Operativo', 'En mantenimiento', 'Baja'])->default('Operativo');
             $table->timestamps();
 
+            $table->index('id_categoria');
             $table->index('estado');
         });
 
@@ -107,16 +111,47 @@ return new class extends Migration {
             $table->index('ci');
         });
 
-        // ─── Asiento (por vehículo) ──────────────────────────────
-        Schema::create('asiento', function (Blueprint $table) {
+        // ─── Piso (nivel del vehículo) ────────────────────────────
+        Schema::create('piso', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_vehiculo')
                 ->constrained('vehiculo')
                 ->onDelete('restrict');
-            $table->string('tipo_asiento', 255)->nullable();
+            $table->unsignedInteger('numero');
+            $table->string('nombre', 255);
+            $table->unsignedInteger('filas');
+            $table->unsignedInteger('columnas');
+            $table->unsignedInteger('orden')->default(0);
+            $table->enum('estado', ['Activo', 'Inactivo'])->default('Activo');
             $table->timestamps();
 
-            $table->index('id_vehiculo');
+            $table->unique(['id_vehiculo', 'numero']);
+            $table->index(['id_vehiculo', 'orden']);
+            $table->index('estado');
+        });
+
+        // ─── Asiento (celda del plano de un piso) ─────────────────
+        Schema::create('asiento', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('id_piso')
+                ->constrained('piso')
+                ->onDelete('restrict');
+            $table->unsignedInteger('fila');
+            $table->unsignedInteger('columna');
+            $table->enum('tipo_celda', [
+                'pasajero',
+                'conductor',
+                'escaleras',
+                'no_disponible',
+                'pasillo',
+            ])->default('pasajero');
+            $table->unsignedInteger('numero_asiento')->nullable();
+            $table->enum('estado', ['Activo', 'Inactivo'])->default('Activo');
+            $table->timestamps();
+
+            $table->index('id_piso');
+            $table->index(['id_piso', 'estado']);
+            $table->index(['id_piso', 'fila', 'columna']);
         });
 
         // ─── Propietario (relación chofer-vehículo, 1 vehículo → 1 dueño) ─
@@ -226,6 +261,7 @@ return new class extends Migration {
         Schema::dropIfExists('encomienda');
         Schema::dropIfExists('propietario');
         Schema::dropIfExists('asiento');
+        Schema::dropIfExists('piso');
         Schema::dropIfExists('pasajero');
         Schema::dropIfExists('vehiculo_chofer_ruta');
         Schema::dropIfExists('asignacion_vehiculo_chofer');

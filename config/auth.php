@@ -1,7 +1,7 @@
 <?php
 
 // use App\Models\User;
-use App\Modules\Auth\Models\User;
+use App\Shared\Models\User;
 
 return [
 
@@ -68,8 +68,9 @@ return [
         //     'model' => env('AUTH_MODEL', User::class),
         // ],
         'user' => [
-            'driver' => 'eloquent', 
-            'model' => User::class],
+            'driver' => 'eloquent',
+            'model' => User::class
+        ],
         // 'user' => [
         //     'driver' => 'database',
         //     'table' => 'user',
