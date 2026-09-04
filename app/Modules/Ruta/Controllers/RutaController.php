@@ -28,25 +28,22 @@ class RutaController extends Controller
     public function index(
         Request $request
     ): JsonResponse {
-        $rutas =
+        $items =
             $this->service
                 ->listar();
 
         return response()->json([
             'rutas' =>
-                $rutas
+                $items
                     ->map(
-                        fn (
-                            $ruta
-                        ) =>
+                        fn ($item) =>
                             (
                                 new RutaResource(
-                                    $ruta
+                                    $item
                                 )
+                            )->resolve(
+                                $request
                             )
-                                ->resolve(
-                                    $request
-                                )
                     )
                     ->values(),
         ]);
@@ -74,10 +71,9 @@ class RutaController extends Controller
                     new RutaResource(
                         $item
                     )
-                )
-                    ->resolve(
-                        $request
-                    ),
+                )->resolve(
+                    $request
+                ),
         ]);
     }
 
@@ -90,7 +86,7 @@ class RutaController extends Controller
     public function store(
         StoreRutaRequest $request
     ): JsonResponse {
-        $ruta =
+        $item =
             $this->service
                 ->crear(
                     $request->validated()
@@ -103,12 +99,11 @@ class RutaController extends Controller
             'ruta' =>
                 (
                     new RutaResource(
-                        $ruta
+                        $item
                     )
-                )
-                    ->resolve(
-                        $request
-                    ),
+                )->resolve(
+                    $request
+                ),
         ], 201);
     }
 
@@ -126,7 +121,6 @@ class RutaController extends Controller
             $this->service
                 ->actualizar(
                     $ruta,
-
                     $request->validated()
                 );
 
@@ -139,10 +133,9 @@ class RutaController extends Controller
                     new RutaResource(
                         $item
                     )
-                )
-                    ->resolve(
-                        $request
-                    ),
+                )->resolve(
+                    $request
+                ),
         ]);
     }
 
@@ -158,7 +151,7 @@ class RutaController extends Controller
     ): JsonResponse {
         $item =
             $this->service
-                ->darDeBaja(
+                ->darBaja(
                     $ruta
                 );
 
@@ -171,10 +164,9 @@ class RutaController extends Controller
                     new RutaResource(
                         $item
                     )
-                )
-                    ->resolve(
-                        $request
-                    ),
+                )->resolve(
+                    $request
+                ),
         ]);
     }
 }

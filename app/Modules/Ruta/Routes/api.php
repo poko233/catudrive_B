@@ -23,7 +23,6 @@ Route::prefix(
 
             Route::get(
                 '/',
-
                 [
                     RutaController::class,
                     'index',
@@ -44,7 +43,6 @@ Route::prefix(
 
             Route::post(
                 '/',
-
                 [
                     RutaController::class,
                     'store',
@@ -52,11 +50,58 @@ Route::prefix(
             )
                 ->middleware([
                     'permiso:Rutas,Rutas,Crear',
-
                     'throttle:write',
                 ])
                 ->name(
                     'rutas.store'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | ACTUALIZAR
+            |--------------------------------------------------------------------------
+            */
+
+            Route::put(
+                '/{ruta}',
+                [
+                    RutaController::class,
+                    'update',
+                ]
+            )
+                ->whereNumber(
+                    'ruta'
+                )
+                ->middleware([
+                    'permiso:Rutas,Rutas,Editar',
+                    'throttle:write',
+                ])
+                ->name(
+                    'rutas.update'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | BAJA
+            |--------------------------------------------------------------------------
+            */
+
+            Route::delete(
+                '/{ruta}',
+                [
+                    RutaController::class,
+                    'destroy',
+                ]
+            )
+                ->whereNumber(
+                    'ruta'
+                )
+                ->middleware([
+                    'permiso:Rutas,Rutas,Eliminar',
+                    'throttle:write',
+                ])
+                ->name(
+                    'rutas.destroy'
                 );
 
             /*
@@ -67,7 +112,6 @@ Route::prefix(
 
             Route::get(
                 '/{ruta}',
-
                 [
                     RutaController::class,
                     'show',
@@ -81,58 +125,6 @@ Route::prefix(
                 )
                 ->name(
                     'rutas.show'
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | ACTUALIZAR
-            |--------------------------------------------------------------------------
-            */
-
-            Route::put(
-                '/{ruta}',
-
-                [
-                    RutaController::class,
-                    'update',
-                ]
-            )
-                ->whereNumber(
-                    'ruta'
-                )
-                ->middleware([
-                    'permiso:Rutas,Rutas,Editar',
-
-                    'throttle:write',
-                ])
-                ->name(
-                    'rutas.update'
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | BAJA LÓGICA
-            |--------------------------------------------------------------------------
-            */
-
-            Route::delete(
-                '/{ruta}',
-
-                [
-                    RutaController::class,
-                    'destroy',
-                ]
-            )
-                ->whereNumber(
-                    'ruta'
-                )
-                ->middleware([
-                    'permiso:Rutas,Rutas,Eliminar',
-
-                    'throttle:delete',
-                ])
-                ->name(
-                    'rutas.destroy'
                 );
         }
     );

@@ -6,10 +6,9 @@ namespace App\Modules\Ruta\Services;
 
 use App\Shared\Models\Ruta;
 use App\Shared\Services\AuditService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 class RutaService
 {
@@ -20,54 +19,24 @@ class RutaService
 
     /*
     |--------------------------------------------------------------------------
-    | QUERY BASE
-    |--------------------------------------------------------------------------
-    |
-    | Calculamos también cuántos viajes utilizaron la ruta.
-    |
-    | Esto evita hacer una consulta adicional por cada fila.
-    |
-    */
-
-    private function queryBase(): Builder
-    {
-        return Ruta::query()
-            ->select(
-                'ruta.*'
-            )
-            ->selectSub(
-                function (
-                    $query
-                ) {
-                    $query
-                        ->from(
-                            'vehiculo_chofer_ruta'
-                        )
-                        ->selectRaw(
-                            'COUNT(*)'
-                        )
-                        ->whereColumn(
-                            'vehiculo_chofer_ruta.id_ruta',
-                            'ruta.id'
-                        );
-                },
-
-                'viajes_count'
-            );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
     | LISTAR
     |--------------------------------------------------------------------------
     */
 
     public function listar(): Collection
     {
-        return $this
-            ->queryBase()
-            ->orderBy(
-                'estado'
+        return Ruta::query()
+            ->withCount(
+                'viajes'
+            )
+            ->orderByRaw(
+                "
+                CASE
+                    WHEN estado = 'Activa'
+                    THEN 0
+                    ELSE 1
+                END
+                "
             )
             ->orderBy(
                 'origen'
@@ -80,15 +49,17 @@ class RutaService
 
     /*
     |--------------------------------------------------------------------------
-    | DETALLE
+    | OBTENER
     |--------------------------------------------------------------------------
     */
 
     public function obtener(
         int $id
     ): Ruta {
-        return $this
-            ->queryBase()
+        return Ruta::query()
+            ->withCount(
+                'viajes'
+            )
             ->findOrFail(
                 $id
             );
@@ -103,68 +74,31 @@ class RutaService
     public function crear(
         array $data
     ): Ruta {
-        $ruta = null;
+        $id =
+            0;
 
         DB::transaction(
             function () use (
                 $data,
-                &$ruta
+                &$id
             ): void {
                 $ruta =
                     Ruta::query()
-                        ->create([
-                            'origen' =>
-                                (string)
-                                $data[
-                                    'origen'
-                                ],
+                        ->create(
+                            $this->payload(
+                                $data
+                            )
+                        );
 
-                            'destino' =>
-                                (string)
-                                $data[
-                                    'destino'
-                                ],
-
-                            'hora_inicio' =>
-                                $data[
-                                    'hora_inicio'
-                                ] ?? null,
-
-                            'hora_fin' =>
-                                $data[
-                                    'hora_fin'
-                                ] ?? null,
-
-                            'tarifa' =>
-                                (float)
-                                $data[
-                                    'tarifa'
-                                ],
-
-                            'estado' =>
-                                $this->estadoParaBase(
-                                    (string)
-                                    $data[
-                                        'estado'
-                                    ]
-                                ),
-                        ]);
+                $id =
+                    (int)
+                    $ruta->id;
             }
         );
 
-        if (
-            !$ruta instanceof
-            Ruta
-        ) {
-            throw new RuntimeException(
-                'No se pudo registrar la ruta.'
-            );
-        }
-
         $fresh =
             $this->obtener(
-                (int)
-                $ruta->id
+                $id
             );
 
         $this->audit
@@ -173,8 +107,7 @@ class RutaService
                     'Ruta',
 
                 resourceId:
-                    (int)
-                    $fresh->id,
+                    $id,
 
                 after:
                     $this->snapshot(
@@ -195,7 +128,8 @@ class RutaService
         int $id,
         array $data
     ): Ruta {
-        $before = [];
+        $before =
+            [];
 
         DB::transaction(
             function () use (
@@ -216,41 +150,11 @@ class RutaService
                         $ruta
                     );
 
-                $ruta->origen =
-                    (string)
-                    $data[
-                        'origen'
-                    ];
-
-                $ruta->destino =
-                    (string)
-                    $data[
-                        'destino'
-                    ];
-
-                $ruta->hora_inicio =
-                    $data[
-                        'hora_inicio'
-                    ] ?? null;
-
-                $ruta->hora_fin =
-                    $data[
-                        'hora_fin'
-                    ] ?? null;
-
-                $ruta->tarifa =
-                    (float)
-                    $data[
-                        'tarifa'
-                    ];
-
-                $ruta->estado =
-                    $this->estadoParaBase(
-                        (string)
-                        $data[
-                            'estado'
-                        ]
-                    );
+                $ruta->fill(
+                    $this->payload(
+                        $data
+                    )
+                );
 
                 $ruta->save();
             }
@@ -283,21 +187,21 @@ class RutaService
 
     /*
     |--------------------------------------------------------------------------
-    | BAJA LÓGICA
+    | BAJA
     |--------------------------------------------------------------------------
     |
-    | NO eliminamos físicamente la ruta.
+    | Baja lógica.
     |
-    | vehiculo_chofer_ruta tiene una FK restrict hacia ruta.
-    |
-    | Además necesitamos conservar los viajes históricos.
+    | No eliminamos la ruta porque puede existir
+    | historial relacionado a ella.
     |
     */
 
-    public function darDeBaja(
+    public function darBaja(
         int $id
     ): Ruta {
-        $before = [];
+        $before =
+            [];
 
         DB::transaction(
             function () use (
@@ -316,6 +220,17 @@ class RutaService
                     $this->snapshot(
                         $ruta
                     );
+
+                if (
+                    mb_strtoupper(
+                        trim(
+                            (string)
+                            $ruta->estado
+                        )
+                    ) === 'INACTIVA'
+                ) {
+                    return;
+                }
 
                 $ruta->estado =
                     'Inactiva';
@@ -351,7 +266,87 @@ class RutaService
 
     /*
     |--------------------------------------------------------------------------
-    | SNAPSHOT AUDITORÍA
+    | PAYLOAD
+    |--------------------------------------------------------------------------
+    */
+
+    private function payload(
+        array $data
+    ): array {
+        return [
+            'origen' =>
+                trim(
+                    (string)
+                    $data[
+                        'origen'
+                    ]
+                ),
+
+            'destino' =>
+                trim(
+                    (string)
+                    $data[
+                        'destino'
+                    ]
+                ),
+
+            'fecha_inicio' =>
+                $data[
+                    'fecha_inicio'
+                ] ?? null,
+
+            'hora_inicio' =>
+                $data[
+                    'hora_inicio'
+                ] ?? null,
+
+            'fecha_fin' =>
+                $data[
+                    'fecha_fin'
+                ] ?? null,
+
+            'hora_fin' =>
+                $data[
+                    'hora_fin'
+                ] ?? null,
+
+            'tarifa' =>
+                $data[
+                    'tarifa'
+                ],
+
+            'estado' =>
+                $this->dbEstado(
+                    (string)
+                    $data[
+                        'estado'
+                    ]
+                ),
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESTADO DB
+    |--------------------------------------------------------------------------
+    */
+
+    private function dbEstado(
+        string $estado
+    ): string {
+        return
+            mb_strtoupper(
+                trim(
+                    $estado
+                )
+            ) === 'INACTIVA'
+                ? 'Inactiva'
+                : 'Activa';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SNAPSHOT
     |--------------------------------------------------------------------------
     */
 
@@ -369,20 +364,30 @@ class RutaService
             'destino' =>
                 $ruta->destino,
 
-            'hora_inicio' =>
-                $ruta->hora_inicio
+            'fecha_inicio' =>
+                $ruta->fecha_inicio
                     ?->format(
-                        'Y-m-d H:i'
+                        'Y-m-d'
+                    ),
+
+            'hora_inicio' =>
+                $this->time(
+                    $ruta->hora_inicio
+                ),
+
+            'fecha_fin' =>
+                $ruta->fecha_fin
+                    ?->format(
+                        'Y-m-d'
                     ),
 
             'hora_fin' =>
-                $ruta->hora_fin
-                    ?->format(
-                        'Y-m-d H:i'
-                    ),
+                $this->time(
+                    $ruta->hora_fin
+                ),
 
             'tarifa' =>
-                (float)
+                (string)
                 $ruta->tarifa,
 
             'estado' =>
@@ -390,23 +395,31 @@ class RutaService
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ESTADO BD
-    |--------------------------------------------------------------------------
-    */
+    private function time(
+        mixed $value
+    ): ?string {
+        if (
+            $value === null ||
+            $value === ''
+        ) {
+            return null;
+        }
 
-    private function estadoParaBase(
-        string $estado
-    ): string {
+        $value =
+            trim(
+                (string)
+                $value
+            );
+
         return
-            mb_strtoupper(
-                trim(
-                    $estado
+            mb_strlen(
+                $value
+            ) >= 5
+                ? mb_substr(
+                    $value,
+                    0,
+                    5
                 )
-            ) ===
-            'INACTIVA'
-                ? 'Inactiva'
-                : 'Activa';
+                : $value;
     }
 }

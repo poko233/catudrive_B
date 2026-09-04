@@ -18,33 +18,38 @@ class RutaResource extends JsonResource
                 $this->id,
 
             'origen' =>
-                (string)
                 $this->origen,
 
             'destino' =>
-                (string)
                 $this->destino,
 
             /*
             |--------------------------------------------------------------------------
-            | HORARIOS
+            | FECHA / HORA INDEPENDIENTES
             |--------------------------------------------------------------------------
-            |
-            | Entregamos exactamente el mismo formato que utiliza el formulario.
-            |
             */
 
-            'hora_inicio' =>
-                $this->hora_inicio
+            'fecha_inicio' =>
+                $this->fecha_inicio
                     ?->format(
-                        'Y-m-d H:i'
+                        'Y-m-d'
+                    ),
+
+            'hora_inicio' =>
+                $this->formatTime(
+                    $this->hora_inicio
+                ),
+
+            'fecha_fin' =>
+                $this->fecha_fin
+                    ?->format(
+                        'Y-m-d'
                     ),
 
             'hora_fin' =>
-                $this->hora_fin
-                    ?->format(
-                        'Y-m-d H:i'
-                    ),
+                $this->formatTime(
+                    $this->hora_fin
+                ),
 
             'tarifa' =>
                 (float)
@@ -58,19 +63,12 @@ class RutaResource extends JsonResource
                     )
                 ),
 
-            /*
-            |--------------------------------------------------------------------------
-            | CANTIDAD DE VIAJES
-            |--------------------------------------------------------------------------
-            */
-
             'viajes_count' =>
-                isset(
-                    $this->viajes_count
-                )
-                    ? (int)
-                    $this->viajes_count
-                    : 0,
+                (int)
+                (
+                    $this->viajes_count ??
+                    0
+                ),
 
             'created_at' =>
                 $this->created_at
@@ -80,5 +78,43 @@ class RutaResource extends JsonResource
                 $this->updated_at
                     ?->toDateTimeString(),
         ];
+    }
+
+    private function formatTime(
+        mixed $value
+    ): ?string {
+        if (
+            $value === null ||
+            $value === ''
+        ) {
+            return null;
+        }
+
+        /*
+         * PostgreSQL devuelve normalmente:
+         *
+         * 08:30:00
+         *
+         * El frontend solamente necesita:
+         *
+         * 08:30
+         */
+
+        $value =
+            trim(
+                (string)
+                $value
+            );
+
+        return
+            mb_strlen(
+                $value
+            ) >= 5
+                ? mb_substr(
+                    $value,
+                    0,
+                    5
+                )
+                : $value;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ruta extends Model
 {
@@ -20,7 +21,9 @@ class Ruta extends Model
     protected $fillable = [
         'origen',
         'destino',
+        'fecha_inicio',
         'hora_inicio',
+        'fecha_fin',
         'hora_fin',
         'tarifa',
         'estado',
@@ -32,11 +35,11 @@ class Ruta extends Model
             'id' =>
                 'integer',
 
-            'hora_inicio' =>
-                'datetime',
+            'fecha_inicio' =>
+                'date',
 
-            'hora_fin' =>
-                'datetime',
+            'fecha_fin' =>
+                'date',
 
             'tarifa' =>
                 'decimal:2',
@@ -44,5 +47,20 @@ class Ruta extends Model
             'estado' =>
                 'string',
         ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VIAJES / ASIGNACIONES A RUTA
+    |--------------------------------------------------------------------------
+    */
+
+    public function viajes(): HasMany
+    {
+        return $this->hasMany(
+            VehiculoChoferRuta::class,
+            'id_ruta',
+            'id'
+        );
     }
 }
