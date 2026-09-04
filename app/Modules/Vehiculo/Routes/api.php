@@ -12,7 +12,7 @@ Route::prefix('vehiculos')
     ->group(function (): void {
         // Rutas existentes de vehículos...
         Route::get('/', [VehiculoController::class, 'index'])
-            ->middleware('throttle:api', 'permission:Vehiculo,Vehiculo,Ver');
+            ->middleware('throttle:api', 'permiso:Vehiculo,Vehiculo,Ver');
 
         Route::post('/', [VehiculoController::class, 'store'])
             ->middleware('throttle:write', 'permission:Vehiculo,Vehiculo,Crear');

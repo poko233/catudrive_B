@@ -126,4 +126,14 @@ Route::middleware([
             ->name(
                 'choferes.destroy'
             );
+        Route::get(
+            '/search',
+            'search'
+        )
+            ->middleware(
+                'permiso:Choferes,Choferes,Ver'
+            )
+            ->name(
+                'choferes.search'
+            );
     });

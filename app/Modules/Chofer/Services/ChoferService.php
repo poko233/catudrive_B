@@ -52,9 +52,7 @@ class ChoferService
         array $data
     ): Chofer {
         $chofer = DB::transaction(
-            function () use (
-                $data
-            ): Chofer {
+            function () use ($data): Chofer {
                 [
                     $nombres,
                     $primerApellido,
@@ -67,7 +65,7 @@ class ChoferService
                     );
 
                 $ci =
-                    (string)
+                    (string) 
                     $data[
                         'carnet_identidad'
                     ];
@@ -121,7 +119,7 @@ class ChoferService
                     Chofer::query()
                         ->create([
                             'id' =>
-                                (int)
+                                (int) 
                                 $usuario->id,
 
                             'carnet_sindical' =>
@@ -146,7 +144,7 @@ class ChoferService
                 $usuario->codigo_qr =
                     $this->qrService
                         ->generateQrImage(
-                            (int)
+                            (int) 
                             $usuario->id
                         );
 
@@ -158,21 +156,21 @@ class ChoferService
 
         $fresh =
             $this->obtener(
-                (int)
+                (int) 
                 $chofer->id
             );
 
         $this->audit->created(
             resource:
-                'Chofer',
+            'Chofer',
 
             resourceId:
-                $fresh->id,
+            $fresh->id,
 
             after:
-                $this->snapshot(
-                    $fresh
-                ),
+            $this->snapshot(
+                $fresh
+            ),
         );
 
         return $fresh;
@@ -185,11 +183,7 @@ class ChoferService
         $before = [];
 
         DB::transaction(
-            function () use (
-                $id,
-                $data,
-                &$before
-            ): void {
+            function () use ($id, $data, &$before): void {
                 $chofer =
                     Chofer::query()
                         ->with('usuario')
@@ -285,18 +279,18 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-                'Chofer',
+            'Chofer',
 
             resourceId:
-                $id,
+            $id,
 
             before:
-                $before,
+            $before,
 
             after:
-                $this->snapshot(
-                    $fresh
-                ),
+            $this->snapshot(
+                $fresh
+            ),
         );
 
         return $fresh;
@@ -308,10 +302,7 @@ class ChoferService
         $before = [];
 
         DB::transaction(
-            function () use (
-                $id,
-                &$before
-            ): void {
+            function () use ($id, &$before): void {
                 $chofer =
                     Chofer::query()
                         ->with('usuario')
@@ -374,18 +365,18 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-                'Chofer',
+            'Chofer',
 
             resourceId:
-                $id,
+            $id,
 
             before:
-                $before,
+            $before,
 
             after:
-                $this->snapshot(
-                    $fresh
-                ),
+            $this->snapshot(
+                $fresh
+            ),
         );
 
         return $fresh;
@@ -439,10 +430,7 @@ class ChoferService
 
         try {
             DB::transaction(
-                function () use (
-                    $usuario,
-                    $rutaNueva
-                ): void {
+                function () use ($usuario, $rutaNueva): void {
                     $usuario->foto =
                         $rutaNueva;
 
@@ -468,10 +456,10 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-                'Chofer',
+            'Chofer',
 
             resourceId:
-                $id,
+            $id,
 
             before: [
                 'fotografia' =>
@@ -509,10 +497,7 @@ class ChoferService
                 );
 
         User::withoutEvents(
-            function () use (
-                $usuario,
-                $qr
-            ): void {
+            function () use ($usuario, $qr): void {
                 $usuario->codigo_qr =
                     $qr;
 
@@ -522,10 +507,10 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-                'Chofer',
+            'Chofer',
 
             resourceId:
-                $id,
+            $id,
 
             before: [
                 'codigo_qr' =>
@@ -599,9 +584,9 @@ class ChoferService
             $asignaciones
                 ->pluck('id')
                 ->map(
-                    fn ($id) =>
-                        (int)
-                        $id
+                    fn($id) =>
+                    (int) 
+                    $id
                 )
                 ->all();
 
@@ -641,11 +626,7 @@ class ChoferService
 
         return $asignaciones
             ->map(
-                function (
-                    object $asignacion
-                ) use (
-                    $viajes
-                ): array {
+                function (object $asignacion) use ($viajes): array {
                     $items =
                         $viajes->get(
                             $asignacion->id,
@@ -654,12 +635,12 @@ class ChoferService
 
                     return [
                         'id' =>
-                            (int)
+                            (int) 
                             $asignacion->id,
 
                         'estado' =>
                             mb_strtoupper(
-                                (string)
+                                (string) 
                                 $asignacion->estado
                             ),
 
@@ -674,7 +655,7 @@ class ChoferService
 
                         'vehiculo' => [
                             'id' =>
-                                (int)
+                                (int) 
                                 $asignacion->id_vehiculo,
 
                             'placa' =>
@@ -699,11 +680,11 @@ class ChoferService
                         'viajes' =>
                             $items
                                 ->map(
-                                    fn (
-                                        object $viaje
-                                    ): array => [
+                                    fn(
+                                    object $viaje
+                                ): array => [
                                         'id' =>
-                                            (int)
+                                            (int) 
                                             $viaje->id,
 
                                         'hora_inicio' =>
@@ -714,7 +695,7 @@ class ChoferService
 
                                         'ruta' => [
                                             'id' =>
-                                                (int)
+                                                (int) 
                                                 $viaje->id_ruta,
 
                                             'origen' =>
@@ -724,7 +705,7 @@ class ChoferService
                                                 $viaje->destino,
 
                                             'tarifa' =>
-                                                (float)
+                                                (float) 
                                                 $viaje->tarifa,
 
                                             'estado' =>
@@ -826,14 +807,14 @@ class ChoferService
             ),
 
             mb_substr(
-                (string)
+                (string) 
                 $primerApellido,
                 0,
                 50
             ),
 
             mb_substr(
-                (string)
+                (string) 
                 $segundoApellido,
                 0,
                 50
@@ -870,8 +851,8 @@ class ChoferService
                 )
             ) ===
             'INACTIVO'
-                ? 'Inactivo'
-                : 'Activo';
+            ? 'Inactivo'
+            : 'Activo';
     }
 
     private function snapshot(
@@ -947,5 +928,33 @@ class ChoferService
                 $path
             );
         }
+    }
+    public function buscar(
+        string $termino
+    ): Collection {
+        $termino = trim($termino);
+
+        return Chofer::query()
+            ->with('usuario')
+            ->when($termino !== '', function ($query) use ($termino) {
+                $query->where(function ($subQuery) use ($termino) {
+                    $subQuery
+                        ->whereHas('usuario', function ($userQuery) use ($termino) {
+                            $userQuery
+                                ->where('nombres', 'ilike', "%{$termino}%")
+                                ->orWhere('primer_apellido', 'ilike', "%{$termino}%")
+                                ->orWhere('segundo_apellido', 'ilike', "%{$termino}%")
+                                ->orWhere('ci', 'ilike', "%{$termino}%");
+                        })
+                        ->orWhere('carnet_sindical', 'ilike', "%{$termino}%");
+                });
+            })
+            ->whereHas('usuario', function ($userQuery) {
+                $userQuery->where('estado', 'Activo');
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
     }
 }

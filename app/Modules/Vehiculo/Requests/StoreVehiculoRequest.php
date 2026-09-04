@@ -43,6 +43,7 @@ class StoreVehiculoRequest extends FormRequest
             ],
             'pisos.*.asientos.*.numero_asiento' => ['nullable', 'integer', 'min:1'],
             'pisos.*.asientos.*.estado' => ['required', 'string', Rule::in(['Activo', 'Inactivo'])],
+            'id_chofer_propietario' => ['nullable', 'integer', 'exists:chofer,id'],
         ];
     }
 }
