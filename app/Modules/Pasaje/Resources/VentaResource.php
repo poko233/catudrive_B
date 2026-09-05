@@ -24,18 +24,18 @@ class VentaResource extends JsonResource
                 return [
                     'id' => $detalle->id,
                     'asiento' => [
-                        'id' => $detalle->asiento->id,
-                        'fila' => $detalle->asiento->fila,
-                        'columna' => $detalle->asiento->columna,
-                        'numero_asiento' => $detalle->asiento->numero_asiento,
+                        'id' => $detalle->asiento?->id,
+                        'fila' => $detalle->asiento?->fila,
+                        'columna' => $detalle->asiento?->columna,
+                        'numero_asiento' => $detalle->asiento?->numero_asiento,
                     ],
-                    'pasajero' => [
+                    'pasajero' => $detalle->pasajero ? [
                         'id' => $detalle->pasajero->id,
                         'nombres' => $detalle->pasajero->nombres,
                         'apellido_paterno' => $detalle->pasajero->apellido_paterno,
                         'apellido_materno' => $detalle->pasajero->apellido_materno,
                         'ci' => $detalle->pasajero->ci,
-                    ],
+                    ] : null,
                     'precio_unitario' => $detalle->precio_unitario,
                 ];
             }),

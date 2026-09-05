@@ -207,42 +207,93 @@ class VentaService
 
             $venta->update(['precio_total' => $precioTotal]);
 
-            return $venta->load('detalles');
+            return $venta->load([
+                'detalles.asiento',
+                'detalles.pasajero',
+            ]);
         });
     }
 
     /**
-     * Asigna un pasajero a un detalle de venta.
+     * Asigna o actualiza un pasajero en un detalle de venta.
      */
     public function asignarPasajero(int $detalleId, array $datosPasajero): DetalleVenta
     {
         $detalle = DetalleVenta::query()->findOrFail($detalleId);
 
         DB::transaction(function () use ($detalle, $datosPasajero) {
-            $pasajero = Pasajero::query()->create($datosPasajero);
-            $detalle->update(['id_pasajero' => $pasajero->id]);
+            if ($detalle->id_pasajero) {
+                // Si ya existe pasajero, actualizarlo
+                $pasajero = Pasajero::query()->findOrFail($detalle->id_pasajero);
+                $pasajero->update($datosPasajero);
+            } else {
+                // Crear nuevo pasajero y asociar
+                $pasajero = Pasajero::query()->create($datosPasajero);
+                $detalle->update(['id_pasajero' => $pasajero->id]);
+            }
         });
 
         return $detalle->fresh('pasajero');
     }
 
     /**
-     * Confirma la venta (pasa a Pagada) y registra forma de pago.
+     * Confirma la venta, asigna pasajeros a los detalles y cambia estado a Pagada.
+     *
+     * @param int $ventaId
+     * @param string $formaPago
+     * @param array $pasajeros Arreglo con id_detalle_venta y datos del pasajero.
+     * @return Venta
      */
-    public function confirmarVenta(int $ventaId, string $formaPago): Venta
+    public function confirmarVenta(int $ventaId, string $formaPago, array $pasajeros): Venta
     {
-        $venta = Venta::query()->findOrFail($ventaId);
+        $venta = Venta::query()->with('detalles')->findOrFail($ventaId);
 
         if ($venta->estado !== 'Pendiente') {
             throw new RuntimeException('Solo se puede confirmar una venta pendiente.');
         }
 
-        $venta->update([
-            'estado' => 'Pagada',
-            'forma_pago' => $formaPago,
-        ]);
+        DB::transaction(function () use ($venta, $formaPago, $pasajeros) {
+            // Obtener los IDs de los detalles de la venta
+            $detallesVenta = $venta->detalles->keyBy('id');
 
-        return $venta->load('detalles.pasajero', 'viaje.vehiculoChoferRuta.ruta');
+            // Validar que cada id_detalle_venta enviado pertenezca a esta venta
+            foreach ($pasajeros as $datosPasajero) {
+                $detalleId = $datosPasajero['id_detalle_venta'];
+
+                if (!$detallesVenta->has($detalleId)) {
+                    throw new RuntimeException("El detalle {$detalleId} no pertenece a esta venta.");
+                }
+            }
+
+            // Procesar cada pasajero
+            foreach ($pasajeros as $datosPasajero) {
+                $detalleId = $datosPasajero['id_detalle_venta'];
+                $detalle = $detallesVenta->get($detalleId);
+
+                // Crear el pasajero
+                $pasajero = Pasajero::query()->create([
+                    'nombres' => $datosPasajero['nombres'],
+                    'apellido_paterno' => $datosPasajero['apellido_paterno'],
+                    'apellido_materno' => $datosPasajero['apellido_materno'] ?? null,
+                    'ci' => $datosPasajero['ci'],
+                ]);
+
+                // Asociar al detalle
+                $detalle->update(['id_pasajero' => $pasajero->id]);
+            }
+
+            // Actualizar venta
+            $venta->update([
+                'estado' => 'Pagada',
+                'forma_pago' => $formaPago,
+            ]);
+        });
+
+        return $venta->fresh()->load([
+            'detalles.asiento',
+            'detalles.pasajero',
+            'viaje.vehiculoChoferRuta.ruta',
+        ]);
     }
 
     /**
@@ -373,5 +424,14 @@ class VentaService
         ]);
 
         return $pdf;
+    }
+    /**
+     * Actualiza el estado de un viaje.
+     */
+    public function actualizarEstadoViaje(Viaje $viaje, string $estado): Viaje
+    {
+        $viaje->update(['estado' => $estado]);
+
+        return $viaje->fresh();
     }
 }

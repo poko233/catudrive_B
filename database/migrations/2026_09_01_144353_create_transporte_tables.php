@@ -243,6 +243,7 @@ return new class extends Migration {
                 ->constrained('asiento')
                 ->onDelete('restrict');
             $table->foreignId('id_pasajero')
+                ->nullable()
                 ->constrained('pasajero')
                 ->onDelete('restrict');
             $table->decimal('precio_unitario', 10, 2)->default(0);

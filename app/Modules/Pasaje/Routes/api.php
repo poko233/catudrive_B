@@ -22,6 +22,8 @@ Route::prefix('pasajes')
         // Asientos de un viaje
         Route::get('/viajes/{idViaje}/asientos', [VentaController::class, 'obtenerAsientos'])
             ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver');
+        Route::put('/viajes/{viaje}/estado', [ViajeController::class, 'updateEstado'])
+            ->middleware('throttle:write', 'permiso:Ventas,Pasajes,Editar');
 
         // Ventas
         Route::post('/ventas/iniciar', [VentaController::class, 'iniciarVenta'])

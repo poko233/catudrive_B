@@ -17,6 +17,12 @@ class ConfirmarVentaRequest extends FormRequest
     {
         return [
             'forma_pago' => ['required', 'string', 'max:255'],
+            'pasajeros' => ['required', 'array', 'min:1'],
+            'pasajeros.*.id_detalle_venta' => ['required', 'integer', 'exists:detalle_venta,id'],
+            'pasajeros.*.nombres' => ['required', 'string', 'max:255'],
+            'pasajeros.*.apellido_paterno' => ['required', 'string', 'max:255'],
+            'pasajeros.*.apellido_materno' => ['nullable', 'string', 'max:255'],
+            'pasajeros.*.ci' => ['required', 'string', 'max:255'],
         ];
     }
 }
