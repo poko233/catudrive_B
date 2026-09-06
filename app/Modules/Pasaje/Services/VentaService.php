@@ -105,22 +105,29 @@ class VentaService
 
         $vehiculo = $viaje->vehiculoChoferRuta->asignacion->vehiculo;
 
-        // Obtener asientos ocupados para este viaje (ventas Pendiente o Pagada)
-        $asientosOcupados = DetalleVenta::query()
+        // Obtener todos los detalles de venta activos para este viaje
+        $detallesActivos = DetalleVenta::query()
             ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
             ->where('venta.id_viaje', $idViaje)
             ->whereIn('venta.estado', ['Pendiente', 'Pagada'])
             ->whereNull('venta.deleted_at')
-            ->pluck('detalle_venta.id_asiento')
-            ->all();
+            ->select(
+                'detalle_venta.id_asiento',
+                'detalle_venta.id as id_detalle_venta',
+                'venta.id as id_venta',
+                'venta.estado as estado_venta'
+            )
+            ->get();
 
-        $asientosReservados = DetalleVenta::query()
-            ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
-            ->where('venta.id_viaje', $idViaje)
-            ->where('venta.estado', 'Pendiente')
-            ->whereNull('venta.deleted_at')
-            ->pluck('detalle_venta.id_asiento')
-            ->all();
+        // Mapa id_asiento => datos de ocupación
+        $ocupaciones = [];
+        foreach ($detallesActivos as $detalle) {
+            $ocupaciones[$detalle->id_asiento] = [
+                'id_venta' => $detalle->id_venta,
+                'id_detalle_venta' => $detalle->id_detalle_venta,
+                'estado_venta' => $detalle->estado_venta,
+            ];
+        }
 
         $resultado = [];
 
@@ -134,12 +141,17 @@ class VentaService
 
             foreach ($piso->asientos as $asiento) {
                 $estadoOcupacion = 'libre';
+                $idVenta = null;
+                $idDetalleVenta = null;
+
                 if ($asiento->tipo_celda !== 'pasajero') {
                     $estadoOcupacion = 'no_disponible';
-                } elseif (in_array($asiento->id, $asientosReservados, true)) {
-                    $estadoOcupacion = 'reservado';
-                } elseif (in_array($asiento->id, $asientosOcupados, true)) {
-                    $estadoOcupacion = 'vendido';
+                } elseif (isset($ocupaciones[$asiento->id])) {
+                    $estadoOcupacion = $ocupaciones[$asiento->id]['estado_venta'] === 'Pendiente'
+                        ? 'reservado'
+                        : 'vendido';
+                    $idVenta = $ocupaciones[$asiento->id]['id_venta'];
+                    $idDetalleVenta = $ocupaciones[$asiento->id]['id_detalle_venta'];
                 }
 
                 $pisoData['asientos'][] = [
@@ -150,6 +162,8 @@ class VentaService
                     'numero_asiento' => $asiento->numero_asiento,
                     'estado' => $asiento->estado,
                     'estado_ocupacion' => $estadoOcupacion,
+                    'id_venta' => $idVenta,
+                    'id_detalle_venta' => $idDetalleVenta,
                 ];
             }
 
@@ -253,10 +267,9 @@ class VentaService
         }
 
         DB::transaction(function () use ($venta, $formaPago, $pasajeros) {
-            // Obtener los IDs de los detalles de la venta
             $detallesVenta = $venta->detalles->keyBy('id');
 
-            // Validar que cada id_detalle_venta enviado pertenezca a esta venta
+            // Validar pertenencia de detalles
             foreach ($pasajeros as $datosPasajero) {
                 $detalleId = $datosPasajero['id_detalle_venta'];
 
@@ -265,27 +278,45 @@ class VentaService
                 }
             }
 
-            // Procesar cada pasajero
+            // Procesar cada pasajero y actualizar precios
             foreach ($pasajeros as $datosPasajero) {
                 $detalleId = $datosPasajero['id_detalle_venta'];
                 $detalle = $detallesVenta->get($detalleId);
 
-                // Crear el pasajero
-                $pasajero = Pasajero::query()->create([
+                // Crear o actualizar pasajero
+                $pasajeroData = [
                     'nombres' => $datosPasajero['nombres'],
                     'apellido_paterno' => $datosPasajero['apellido_paterno'],
                     'apellido_materno' => $datosPasajero['apellido_materno'] ?? null,
                     'ci' => $datosPasajero['ci'],
-                ]);
+                ];
 
-                // Asociar al detalle
-                $detalle->update(['id_pasajero' => $pasajero->id]);
+                if ($detalle->id_pasajero) {
+                    $pasajero = Pasajero::query()->findOrFail($detalle->id_pasajero);
+                    $pasajero->update($pasajeroData);
+                } else {
+                    $pasajero = Pasajero::query()->create($pasajeroData);
+                }
+
+                // Actualizar precio unitario si viene en el request
+                $precioUnitario = isset($datosPasajero['precio_unitario'])
+                    ? (float) $datosPasajero['precio_unitario']
+                    : (float) $detalle->precio_unitario;
+
+                $detalle->update([
+                    'id_pasajero' => $pasajero->id,
+                    'precio_unitario' => $precioUnitario,
+                ]);
             }
+
+            // Recalcular total de la venta
+            $precioTotal = $venta->detalles()->sum('precio_unitario');
 
             // Actualizar venta
             $venta->update([
                 'estado' => 'Pagada',
                 'forma_pago' => $formaPago,
+                'precio_total' => $precioTotal,
             ]);
         });
 
@@ -434,4 +465,5 @@ class VentaService
 
         return $viaje->fresh();
     }
+
 }

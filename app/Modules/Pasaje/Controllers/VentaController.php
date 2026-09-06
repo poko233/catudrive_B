@@ -9,9 +9,8 @@ use App\Modules\Pasaje\Requests\ConfirmarVentaRequest;
 use App\Modules\Pasaje\Requests\IniciarVentaRequest;
 use App\Modules\Pasaje\Resources\VentaResource;
 use App\Modules\Pasaje\Services\VentaService;
-use App\Shared\Models\DetalleVenta;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -24,12 +23,20 @@ class VentaController
 
     public function obtenerAsientos(int $idViaje): JsonResponse
     {
-        $asientos = $this->ventaService->obtenerAsientos($idViaje);
+        try {
+            $asientos = $this->ventaService->obtenerAsientos($idViaje);
 
-        return response()->json([
-            'success' => true,
-            'data' => $asientos,
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $asientos,
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Viaje no encontrado.',
+                'code' => 'NOT_FOUND',
+            ], 404);
+        }
     }
 
     public function iniciarVenta(IniciarVentaRequest $request): JsonResponse|VentaResource
@@ -42,6 +49,12 @@ class VentaController
             );
 
             return new VentaResource($venta);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Viaje no encontrado.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -57,10 +70,16 @@ class VentaController
             $venta = $this->ventaService->confirmarVenta(
                 $ventaId,
                 $request->validated()['forma_pago'],
-                $request->validated()['pasajeros']
+                $request->validated()['pasajeros'] ?? []
             );
 
             return new VentaResource($venta);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -79,6 +98,12 @@ class VentaController
                 'success' => true,
                 'message' => 'Venta cancelada correctamente.',
             ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -97,6 +122,12 @@ class VentaController
                 'success' => true,
                 'message' => 'Venta anulada correctamente.',
             ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -115,6 +146,12 @@ class VentaController
                 'success' => true,
                 'message' => 'Detalle eliminado, asiento liberado.',
             ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Detalle no encontrado.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -142,6 +179,32 @@ class VentaController
                     )
                 ),
             ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Detalle no encontrado.',
+                'code' => 'NOT_FOUND',
+            ], 404);
+        } catch (RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'code' => 'BUSINESS_ERROR',
+            ], 409);
+        }
+    }
+
+    public function show(int $ventaId): JsonResponse|VentaResource
+    {
+        try {
+            $venta = $this->ventaService->obtenerVenta($ventaId);
+            return new VentaResource($venta);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         } catch (RuntimeException $e) {
             return response()->json([
                 'success' => false,
@@ -155,41 +218,5 @@ class VentaController
     {
         $pdf = $this->ventaService->generarPdfVenta($ventaId);
         return $pdf->download("boleto-{$ventaId}.pdf");
-    }
-    public function asignarPasajero(int $detalleId, AsignarPasajeroRequest $request): JsonResponse
-    {
-        try {
-            $detalle = $this->ventaService->asignarPasajero(
-                $detalleId,
-                $request->validated()
-            );
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $detalle->id,
-                    'asiento' => [
-                        'id' => $detalle->asiento?->id,
-                        'fila' => $detalle->asiento?->fila,
-                        'columna' => $detalle->asiento?->columna,
-                        'numero_asiento' => $detalle->asiento?->numero_asiento,
-                    ],
-                    'pasajero' => [
-                        'id' => $detalle->pasajero?->id,
-                        'nombres' => $detalle->pasajero?->nombres,
-                        'apellido_paterno' => $detalle->pasajero?->apellido_paterno,
-                        'apellido_materno' => $detalle->pasajero?->apellido_materno,
-                        'ci' => $detalle->pasajero?->ci,
-                    ],
-                    'precio_unitario' => $detalle->precio_unitario,
-                ],
-            ]);
-        } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
-        }
     }
 }

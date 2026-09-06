@@ -23,6 +23,7 @@ class ConfirmarVentaRequest extends FormRequest
             'pasajeros.*.apellido_paterno' => ['required', 'string', 'max:255'],
             'pasajeros.*.apellido_materno' => ['nullable', 'string', 'max:255'],
             'pasajeros.*.ci' => ['required', 'string', 'max:255'],
+            'pasajeros.*.precio_unitario' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }
