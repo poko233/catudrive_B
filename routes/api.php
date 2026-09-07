@@ -15,3 +15,4 @@ require __DIR__ . '/../app/Modules/Ruta/Routes/api.php';
 require __DIR__ . '/../app/Modules/AsignacionVehiculo/Routes/api.php';
 require __DIR__ . '/../app/Modules/Vehiculo/Routes/api.php';
 require __DIR__ . '/../app/Modules/Pasaje/Routes/api.php';
+require __DIR__ . '/../app/Modules/Encomienda/Routes/api.php';
