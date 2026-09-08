@@ -6,27 +6,41 @@
     <title>Ticket #{{ $venta->id }}</title>
     <style>
         @page {
-            size: 58mm auto;
+            size: 48mm auto;
             margin: 0;
         }
 
-        * {
+        html,
+        body {
             margin: 0;
             padding: 0;
+        }
+
+        * {
             box-sizing: border-box;
         }
 
         body {
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            width: 58mm;
-            padding: 2mm;
+            font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+            font-size: 9px;
+            width: 48mm;
+            margin: 0 auto;
+            padding: 0;
             color: #000;
             background: #fff;
+            font-weight: 900;
+            text-shadow:
+                0 0 1.2px #000,
+                0 0 0.5px #000;
+            line-height: 1.2;
+            position: relative;
+            left: -1.25mm;
         }
 
         .ticket {
             width: 100%;
+            padding: 0;
+            margin: 0;
         }
 
         .center {
@@ -34,31 +48,43 @@
         }
 
         .bold {
-            font-weight: bold;
+            font-weight: 900;
         }
 
         .line {
             border-top: 1px dashed #000;
-            margin: 3px 0;
+            margin: 1px 0;
         }
 
         .row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 1px;
+            margin-bottom: 0;
+            font-weight: 900;
+            text-shadow:
+                0 0 1.2px #000,
+                0 0 0.5px #000;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 2px;
+            margin-top: 1px;
+            font-weight: 900;
+            text-shadow:
+                0 0 1.2px #000,
+                0 0 0.5px #000;
         }
 
         th,
         td {
-            font-size: 9px;
+            font-size: 8px;
             text-align: left;
-            padding: 1px 0;
+            padding: 0 0 1px 0;
+            font-weight: 900;
+            text-shadow:
+                0 0 1.2px #000,
+                0 0 0.5px #000;
         }
 
         th {
@@ -67,7 +93,7 @@
 
         .qr {
             text-align: center;
-            margin: 4px 0;
+            margin: 2px 0;
         }
 
         .qr img {
@@ -77,8 +103,12 @@
 
         .footer {
             text-align: center;
-            margin-top: 3px;
-            font-size: 8px;
+            margin-top: 1px;
+            font-size: 7px;
+            font-weight: 900;
+            text-shadow:
+                0 0 1.2px #000,
+                0 0 0.5px #000;
         }
     </style>
 </head>
@@ -96,11 +126,14 @@
         <div class="row"><span class="bold">Origen:</span> {{ $venta->viaje->vehiculoChoferRuta->ruta->origen ?? '-' }}
         </div>
         <div class="row"><span class="bold">Destino:</span>
-            {{ $venta->viaje->vehiculoChoferRuta->ruta->destino ?? '-' }}</div>
+            {{ $venta->viaje->vehiculoChoferRuta->ruta->destino ?? '-' }}
+        </div>
         <div class="row"><span class="bold">Salida:</span>
-            {{ $venta->viaje->vehiculoChoferRuta->hora_inicio?->format('d/m/Y H:i') ?? '-' }}</div>
+            {{ $venta->viaje->vehiculoChoferRuta->hora_inicio?->format('d/m/Y H:i') ?? '-' }}
+        </div>
         <div class="row"><span class="bold">Vehículo:</span>
-            {{ $venta->viaje->vehiculoChoferRuta->asignacion->vehiculo->placa ?? '-' }}</div>
+            {{ $venta->viaje->vehiculoChoferRuta->asignacion->vehiculo->placa ?? '-' }}
+        </div>
         <div class="row"><span class="bold">Chofer:</span>
             {{ trim(($venta->viaje->vehiculoChoferRuta->asignacion->chofer->usuario->nombres ?? '') . ' ' . ($venta->viaje->vehiculoChoferRuta->asignacion->chofer->usuario->primer_apellido ?? '')) }}
         </div>
@@ -109,7 +142,6 @@
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
                     <th>Asiento</th>
                     <th>Pasajero</th>
                     <th>CI</th>
@@ -119,12 +151,12 @@
             <tbody>
                 @foreach($venta->detalles as $detalle)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $detalle->asiento->numero_asiento ?? $detalle->asiento->fila . '-' . $detalle->asiento->columna }}
                         </td>
                         <td>
                             @if($detalle->pasajero)
-                                {{ trim($detalle->pasajero->nombres . ' ' . $detalle->pasajero->apellido_paterno) }}
+                                {{ strtoupper($detalle->pasajero->apellido_paterno) }}
+                                {{ strtoupper(mb_substr($detalle->pasajero->nombres, 0, 1)) }}.
                             @else
                                 -
                             @endif
