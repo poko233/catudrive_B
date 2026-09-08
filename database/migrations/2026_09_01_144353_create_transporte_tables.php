@@ -255,19 +255,19 @@ return new class extends Migration {
         });
 
         // ─── ENCOMIENDA POR VIAJE ─────────────────────────────────
-        Schema::create('vehiculo_chofer_ruta_encomienda', function (Blueprint $table) {
+        Schema::create('viaje_encomienda', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_vehiculo_chofer_ruta')
-                ->constrained('vehiculo_chofer_ruta')
+            $table->foreignId('id_viaje')
+                ->constrained('viaje')
                 ->onDelete('restrict');
             $table->foreignId('id_encomienda')
                 ->constrained('encomienda')
                 ->onDelete('restrict');
             $table->timestamps();
 
-            $table->index('id_vehiculo_chofer_ruta');
+            $table->index('id_viaje');
             $table->index('id_encomienda');
-            $table->unique(['id_vehiculo_chofer_ruta', 'id_encomienda'], 'uq_viaje_encomienda');
+            $table->unique(['id_viaje', 'id_encomienda'], 'uq_viaje_encomienda');
         });
     }
 
