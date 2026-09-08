@@ -12,14 +12,11 @@ class Encomienda extends Model
 {
     use SoftDeletes;
 
-    protected $table =
-        'encomienda';
+    protected $table = 'encomienda';
 
-    protected $primaryKey =
-        'id';
+    protected $primaryKey = 'id';
 
-    public $timestamps =
-        true;
+    public $timestamps = true;
 
     protected $fillable = [
         'guia',
@@ -36,78 +33,41 @@ class Encomienda extends Model
     protected function casts(): array
     {
         return [
-            'id' =>
-                'integer',
-
-            'cantidad' =>
-                'integer',
-
-            'precio' =>
-                'decimal:2',
-
-            'estado' =>
-                'string',
+            'id' => 'integer',
+            'cantidad' => 'integer',
+            'precio' => 'decimal:2',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ASIGNACIÓN A VIAJE
-    |--------------------------------------------------------------------------
-    */
-
-    public function asignacionViaje(): HasOne
+    public function viajeEncomienda(): HasOne
     {
         return $this->hasOne(
-            VehiculoChoferRutaEncomienda::class,
+            ViajeEncomienda::class,
             'id_encomienda',
             'id'
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ESTADOS
-    |--------------------------------------------------------------------------
-    */
-
     public function estaRegistrada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'REGISTRADA';
+        return $this->estado === 'Registrada';
     }
 
     public function estaEnTransito(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'EN TRÁNSITO';
+        return $this->estado === 'En tránsito';
     }
 
     public function estaEntregada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'ENTREGADA';
+        return $this->estado === 'Entregada';
     }
 
     public function estaAnulada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'ANULADA';
+        return $this->estado === 'Anulada';
     }
 }

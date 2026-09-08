@@ -16,21 +16,10 @@ class AsignarEncomiendaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_asignacion_vehiculo_chofer' => [
+            'id_viaje' => [
                 'required',
                 'integer',
-                'exists:asignacion_vehiculo_chofer,id',
-            ],
-
-            'id_ruta' => [
-                'required',
-                'integer',
-                'exists:ruta,id',
-            ],
-
-            'hora_inicio' => [
-                'required',
-                'date',
+                'exists:viaje,id',
             ],
         ];
     }
@@ -38,23 +27,9 @@ class AsignarEncomiendaRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'id_asignacion_vehiculo_chofer.required' =>
-                'Debe seleccionar un vehículo con chofer asignado.',
-
-            'id_asignacion_vehiculo_chofer.exists' =>
-                'La asignación seleccionada no existe.',
-
-            'id_ruta.required' =>
-                'Debe seleccionar una ruta.',
-
-            'id_ruta.exists' =>
-                'La ruta seleccionada no existe.',
-
-            'hora_inicio.required' =>
-                'La fecha y hora de salida son obligatorias.',
-
-            'hora_inicio.date' =>
-                'La fecha y hora de salida no son válidas.',
+            'id_viaje.required' => 'Debe seleccionar un viaje.',
+            'id_viaje.integer' => 'El viaje seleccionado no es válido.',
+            'id_viaje.exists' => 'El viaje seleccionado no existe.',
         ];
     }
 }

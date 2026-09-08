@@ -47,23 +47,28 @@ class EncomiendaResource extends JsonResource
 
         /*
         |--------------------------------------------------------------------------
-        | ASIGNACIÓN / VIAJE
+        | VIAJE ENCOMIENDA
         |--------------------------------------------------------------------------
         */
 
-        $asignacionViaje =
-            $this->asignacionViaje;
+        $viajeEncomienda =
+            $this
+                ->viajeEncomienda;
 
         $viaje =
-            $asignacionViaje
+            $viajeEncomienda
                 ?->viaje;
 
-        $ruta =
+        $vehiculoChoferRuta =
             $viaje
+                ?->vehiculoChoferRuta;
+
+        $ruta =
+            $vehiculoChoferRuta
                 ?->ruta;
 
         $asignacion =
-            $viaje
+            $vehiculoChoferRuta
                 ?->asignacion;
 
         $chofer =
@@ -154,8 +159,12 @@ class EncomiendaResource extends JsonResource
                             (int)
                             $viaje->id,
 
+                        'estado' =>
+                            $viaje->estado,
+
                         'hora_inicio' =>
-                            $viaje->hora_inicio
+                            $vehiculoChoferRuta
+                                ?->hora_inicio
                                 ?->format(
                                     'Y-m-d H:i:s'
                                 ),
@@ -204,7 +213,8 @@ class EncomiendaResource extends JsonResource
                                         $usuario?->ci,
 
                                     'carnet_sindical' =>
-                                        $chofer->carnet_sindical,
+                                        $chofer
+                                            ->carnet_sindical,
                                 ]
                                 : null,
 

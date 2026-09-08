@@ -7,6 +7,7 @@ namespace App\Shared\Models;
 use App\Shared\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Viaje extends Model
@@ -41,5 +42,15 @@ class Viaje extends Model
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class, 'id_viaje');
+    }
+
+    public function encomiendas(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Encomienda::class,
+            'viaje_encomienda',
+            'id_viaje',
+            'id_encomienda'
+        )->withTimestamps();
     }
 }
