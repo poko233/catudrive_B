@@ -216,7 +216,33 @@ class VentaController
 
     public function generarPdf(int $ventaId): Response
     {
-        $pdf = $this->ventaService->generarPdfVenta($ventaId);
-        return $pdf->download("boleto-{$ventaId}.pdf");
+        try {
+            $pdf = $this->ventaService->generarPdfVenta($ventaId);
+            return $pdf->download("boleto-{$ventaId}.pdf");
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
+        }
+    }
+    public function ticketHtml(int $ventaId): Response
+    {
+        try {
+            $venta = $this->ventaService->obtenerVenta($ventaId);
+            $qrData = $this->ventaService->generarQrData($ventaId);
+
+            return response()->view('pasajes.ticket-thermal', [
+                'venta' => $venta,
+                'qrData' => $qrData,
+            ])->header('Content-Type', 'text/html');
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
+        }
     }
 }

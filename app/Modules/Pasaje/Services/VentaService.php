@@ -465,5 +465,8 @@ class VentaService
 
         return $viaje->fresh();
     }
-
+    public function generarQrData(int $ventaId): string
+    {
+        return $this->qrService->generateQrImage($ventaId);
+    }
 }

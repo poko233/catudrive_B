@@ -37,8 +37,13 @@ Route::prefix('pasajes')
 
         Route::post('/ventas/{ventaId}/anular', [VentaController::class, 'anularVenta'])
             ->middleware('throttle:delete', 'permiso:Ventas,Pasajes,Eliminar');
+
         Route::get('/ventas/{ventaId}', [VentaController::class, 'show'])
             ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver');
+
+        Route::get('/ventas/{ventaId}/ticket-html', [VentaController::class, 'ticketHtml'])
+            ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver');
+
         // Detalle venta
         Route::delete('/detalles/{detalleId}', [VentaController::class, 'eliminarDetalle'])
             ->middleware('throttle:delete', 'permiso:Ventas,Pasajes,Eliminar');
