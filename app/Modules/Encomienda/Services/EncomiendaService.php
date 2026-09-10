@@ -7,6 +7,7 @@ namespace App\Modules\Encomienda\Services;
 use App\Shared\Models\Encomienda;
 use App\Shared\Models\Viaje;
 use App\Shared\Models\ViajeEncomienda;
+use App\Shared\Models\Ruta;
 use App\Shared\Services\AuditService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -30,6 +31,7 @@ class EncomiendaService
     {
         return Encomienda::query()
             ->with([
+                'ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
@@ -241,7 +243,37 @@ class EncomiendaService
                 )
                 ->values();
 
+        $rutas =
+            Ruta::query()
+                ->where(
+                    'estado',
+                    'Activa'
+                )
+                ->orderBy(
+                    'origen'
+                )
+                ->orderBy(
+                    'destino'
+                )
+                ->get()
+                ->map(
+                    fn (Ruta $ruta): array => [
+                        'id' =>
+                            (int)
+                            $ruta->id,
+                        'origen' =>
+                            $ruta->origen,
+                        'destino' =>
+                            $ruta->destino,
+                        'estado' =>
+                        $ruta->estado,
+                    ]
+                )
+                ->values();
+
         return [
+            'rutas' =>
+                $rutas,
             'viajes' =>
                 $viajes,
         ];
@@ -279,6 +311,12 @@ class EncomiendaService
                             'guia' =>
                                 null,
 
+                            'id_ruta' =>
+                                (int)
+                                $data[
+                                    'id_ruta'
+                                ],
+
                             'remitente' =>
                                 $data[
                                     'remitente'
@@ -287,16 +325,6 @@ class EncomiendaService
                             'destinatario' =>
                                 $data[
                                     'destinatario'
-                                ],
-
-                            'origen' =>
-                                $data[
-                                    'origen'
-                                ],
-
-                            'destino' =>
-                                $data[
-                                    'destino'
                                 ],
 
                             'descripcion' =>
@@ -419,42 +447,41 @@ class EncomiendaService
                 | ACTUALIZAR
                 |--------------------------------------------------------------------------
                 */
+                
+                $encomienda->fill([
 
-                $encomienda->remitente =
-                    $data[
-                        'remitente'
-                    ];
+                    'id_ruta' =>
+                        (int)
+                        $data[
+                            'id_ruta'
+                        ],
 
-                $encomienda->destinatario =
-                    $data[
-                        'destinatario'
-                    ];
+                    'remitente' =>
+                        $data[
+                            'remitente'
+                        ],
 
-                $encomienda->origen =
-                    $data[
-                        'origen'
-                    ];
+                    'destinatario' =>
+                        $data[
+                            'destinatario'
+                        ],
 
-                $encomienda->destino =
-                    $data[
-                        'destino'
-                    ];
+                    'descripcion' =>
+                        $data[
+                            'descripcion'
+                        ] ?? null,
 
-                $encomienda->descripcion =
-                    $data[
-                        'descripcion'
-                    ] ?? null;
+                    'cantidad' =>
+                        (int)
+                        $data[
+                            'cantidad'
+                        ],
 
-                $encomienda->cantidad =
-                    (int)
-                    $data[
-                        'cantidad'
-                    ];
-
-                $encomienda->precio =
-                    $data[
-                        'precio'
-                    ];
+                    'precio' =>
+                        $data[
+                            'precio'
+                        ],
+                ]);
 
                 $encomienda->save();
             }
@@ -627,25 +654,14 @@ class EncomiendaService
                 */
 
                 if (
-                    !$this->textoIgual(
-                        (string)
-                        $encomienda->origen,
-
-                        (string)
-                        $ruta->origen
-                    )
-                    ||
-                    !$this->textoIgual(
-                        (string)
-                        $encomienda->destino,
-
-                        (string)
-                        $ruta->destino
-                    )
+                    (int)
+                    $encomienda->id_ruta !==
+                    (int)
+                    $vehiculoChoferRuta->id_ruta
                 ) {
-                    throw ValidationException::withMessages([
+                    throw ValidationException::withMessagges([
                         'id_viaje' =>
-                            'La ruta del viaje seleccionado no coincide con el origen y destino de la encomienda.',
+                            'El viaje seleccionado no corresponde a la ruta de la encomienda.',
                     ]);
                 }
 

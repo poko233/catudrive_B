@@ -51,6 +51,9 @@ class EncomiendaResource extends JsonResource
         |--------------------------------------------------------------------------
         */
 
+        $ruta =
+            $this->ruta;
+
         $viajeEncomienda =
             $this
                 ->viajeEncomienda;
@@ -63,7 +66,7 @@ class EncomiendaResource extends JsonResource
             $viaje
                 ?->vehiculoChoferRuta;
 
-        $ruta =
+        $rutaViaje =
             $vehiculoChoferRuta
                 ?->ruta;
 
@@ -96,12 +99,6 @@ class EncomiendaResource extends JsonResource
             );
 
         return [
-            /*
-            |--------------------------------------------------------------------------
-            | ENCOMIENDA
-            |--------------------------------------------------------------------------
-            */
-
             'id' =>
                 (int)
                 $this->id,
@@ -115,17 +112,54 @@ class EncomiendaResource extends JsonResource
                         'Y-m-d'
                     ),
 
+            'id_ruta' =>
+                $this->id_ruta
+                    !== null
+                        ? (int)
+                        $this->id_ruta
+                        : null,
+
+            /*
+            |--------------------------------------------------------------------------
+            | COMPATIBILIDAD
+            |--------------------------------------------------------------------------
+            |
+            | Estos campos ya no están físicamente en encomienda.
+            | Se obtienen de la ruta relacionada.
+            |
+            */
+
+            'origen' =>
+                $ruta
+                    ?->origen,
+
+            'destino' =>
+                $ruta
+                    ?->destino,
+
+            'ruta' =>
+                $ruta
+                    ? [
+                        'id' =>
+                            (int)
+                            $ruta->id,
+
+                        'origen' =>
+                            $ruta->origen,
+
+                        'destino' =>
+                            $ruta->destino,
+
+                        'estado' =>
+                            $ruta->estado,
+                    ]
+                    : null,
+
             'remitente' =>
                 $this->remitente,
 
             'destinatario' =>
                 $this->destinatario,
-
-            'origen' =>
-                $this->origen,
-
-            'destino' =>
-                $this->destino,
 
             'descripcion' =>
                 $this->descripcion,
@@ -144,13 +178,30 @@ class EncomiendaResource extends JsonResource
                 ),
 
             'estado' =>
-                $estado,
+                match (
+                    $this->estado
+                ) {
+                    'Registrada' =>
+                        'REGISTRADA',
 
-            /*
-            |--------------------------------------------------------------------------
-            | VIAJE
-            |--------------------------------------------------------------------------
-            */
+                    'En tránsito' =>
+                        'EN_TRANSITO',
+
+                    'Entregada' =>
+                        'ENTREGADA',
+
+                    'Anulada' =>
+                        'ANULADA',
+
+                    default =>
+                        mb_strtoupper(
+                            str_replace(
+                                ' ',
+                                '_',
+                                $this->estado
+                            )
+                        ),
+                },
 
             'viaje' =>
                 $viaje
@@ -169,35 +220,23 @@ class EncomiendaResource extends JsonResource
                                     'Y-m-d H:i:s'
                                 ),
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | RUTA
-                        |--------------------------------------------------------------------------
-                        */
-
                         'ruta' =>
-                            $ruta
+                            $rutaViaje
                                 ? [
                                     'id' =>
                                         (int)
-                                        $ruta->id,
+                                        $rutaViaje->id,
 
                                     'origen' =>
-                                        $ruta->origen,
+                                        $rutaViaje->origen,
 
                                     'destino' =>
-                                        $ruta->destino,
+                                        $rutaViaje->destino,
 
                                     'estado' =>
-                                        $ruta->estado,
+                                        $rutaViaje->estado,
                                 ]
                                 : null,
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CHOFER
-                        |--------------------------------------------------------------------------
-                        */
 
                         'chofer' =>
                             $chofer
@@ -207,22 +246,31 @@ class EncomiendaResource extends JsonResource
                                         $chofer->id,
 
                                     'nombre' =>
-                                        $nombreChofer,
+                                        trim(
+                                            implode(
+                                                ' ',
+                                                array_filter([
+                                                    $usuario
+                                                        ?->nombres,
+
+                                                    $usuario
+                                                        ?->primer_apellido,
+
+                                                    $usuario
+                                                        ?->segundo_apellido,
+                                                ])
+                                            )
+                                        ),
 
                                     'ci' =>
-                                        $usuario?->ci,
+                                        $usuario
+                                            ?->ci,
 
                                     'carnet_sindical' =>
                                         $chofer
-                                            ->carnet_sindical,
+                                            ?->carnet_sindical,
                                 ]
                                 : null,
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | VEHÍCULO
-                        |--------------------------------------------------------------------------
-                        */
 
                         'vehiculo' =>
                             $vehiculo
@@ -250,19 +298,13 @@ class EncomiendaResource extends JsonResource
                     ]
                     : null,
 
-            /*
-            |--------------------------------------------------------------------------
-            | TIMESTAMPS
-            |--------------------------------------------------------------------------
-            */
-
             'created_at' =>
                 $this->created_at
-                    ?->toDateTimeString(),
+                    ?->toISOString(),
 
             'updated_at' =>
                 $this->updated_at
-                    ?->toDateTimeString(),
+                    ?->toISOString(),
         ];
     }
 }
