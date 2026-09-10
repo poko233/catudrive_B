@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -12,21 +13,15 @@ class Encomienda extends Model
 {
     use SoftDeletes;
 
-    protected $table =
-        'encomienda';
-
-    protected $primaryKey =
-        'id';
-
-    public $timestamps =
-        true;
+    protected $table = 'encomienda';
+    protected $primaryKey = 'id';
+    public $timestamps = true;
 
     protected $fillable = [
         'guia',
+        'id_ruta',
         'remitente',
         'destinatario',
-        'origen',
-        'destino',
         'descripcion',
         'cantidad',
         'precio',
@@ -36,78 +31,51 @@ class Encomienda extends Model
     protected function casts(): array
     {
         return [
-            'id' =>
-                'integer',
-
-            'cantidad' =>
-                'integer',
-
-            'precio' =>
-                'decimal:2',
-
-            'estado' =>
-                'string',
+            'id' => 'integer',
+            'id_ruta' => 'integer',
+            'cantidad' => 'integer',
+            'precio' => 'decimal:2',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ASIGNACIÓN A VIAJE
-    |--------------------------------------------------------------------------
-    */
+    public function ruta(): BelongsTo
+    {
+        return $this->belongsTo(
+            Ruta::class,
+            'id_ruta',
+            'id'
+        );
+    }
 
-    public function asignacionViaje(): HasOne
+    public function viajeEncomienda(): HasOne
     {
         return $this->hasOne(
-            VehiculoChoferRutaEncomienda::class,
+            ViajeEncomienda::class,
             'id_encomienda',
             'id'
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ESTADOS
-    |--------------------------------------------------------------------------
-    */
-
     public function estaRegistrada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'REGISTRADA';
+        return $this->estado === 'Registrada';
     }
 
     public function estaEnTransito(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'EN TRÁNSITO';
+        return $this->estado === 'En tránsito';
     }
 
     public function estaEntregada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'ENTREGADA';
+        return $this->estado === 'Entregada';
     }
 
     public function estaAnulada(): bool
     {
-        return mb_strtoupper(
-            trim(
-                (string)
-                $this->estado
-            )
-        ) === 'ANULADA';
+        return $this->estado === 'Anulada';
     }
 }

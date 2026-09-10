@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Encomienda\Services;
 
-use App\Shared\Models\AsignacionVehiculoChofer;
 use App\Shared\Models\Encomienda;
+use App\Shared\Models\Viaje;
+use App\Shared\Models\ViajeEncomienda;
 use App\Shared\Models\Ruta;
-use App\Shared\Models\VehiculoChoferRuta;
-use App\Shared\Models\VehiculoChoferRutaEncomienda;
 use App\Shared\Services\AuditService;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,9 +31,10 @@ class EncomiendaService
     {
         return Encomienda::query()
             ->with([
-                'asignacionViaje.viaje.ruta',
-                'asignacionViaje.viaje.asignacion.chofer.usuario',
-                'asignacionViaje.viaje.asignacion.vehiculo',
+                'ruta',
+                'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
+                'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
+                'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
             ]);
     }
 
@@ -106,39 +105,50 @@ class EncomiendaService
     {
         /*
         |--------------------------------------------------------------------------
-        | ASIGNACIONES ACTIVAS
+        | VIAJES
         |--------------------------------------------------------------------------
         */
 
-        $asignaciones =
-            AsignacionVehiculoChofer::query()
+        $viajes =
+            Viaje::query()
                 ->with([
-                    'chofer.usuario',
-                    'vehiculo',
+                    'vehiculoChoferRuta.ruta',
+                    'vehiculoChoferRuta.asignacion.chofer.usuario',
+                    'vehiculoChoferRuta.asignacion.vehiculo',
                 ])
-                ->where(
-                    'estado',
-                    'Activo'
-                )
                 ->orderByDesc(
-                    'fecha_asignacion'
+                    'id'
                 )
                 ->get()
                 ->map(
                     function (
-                        AsignacionVehiculoChofer $asignacion
+                        Viaje $viaje
                     ): array {
+                        $vehiculoChoferRuta =
+                            $viaje
+                                ->vehiculoChoferRuta;
+
+                        $ruta =
+                            $vehiculoChoferRuta
+                                ?->ruta;
+
+                        $asignacion =
+                            $vehiculoChoferRuta
+                                ?->asignacion;
+
                         $chofer =
-                            $asignacion->chofer;
+                            $asignacion
+                                ?->chofer;
 
                         $usuario =
                             $chofer
                                 ?->usuario;
 
                         $vehiculo =
-                            $asignacion->vehiculo;
+                            $asignacion
+                                ?->vehiculo;
 
-                        $nombre =
+                        $nombreChofer =
                             trim(
                                 implode(
                                     ' ',
@@ -153,70 +163,85 @@ class EncomiendaService
                         return [
                             'id' =>
                                 (int)
-                                $asignacion->id,
+                                $viaje->id,
 
-                            'fecha_asignacion' =>
-                                $asignacion
-                                    ->fecha_asignacion
+                            'estado' =>
+                                $viaje->estado,
+
+                            'hora_inicio' =>
+                                $vehiculoChoferRuta
+                                    ?->hora_inicio
                                     ?->format(
-                                        'Y-m-d'
+                                        'Y-m-d H:i:s'
                                     ),
 
-                            'chofer' => [
-                                'id' =>
-                                    (int)
-                                    $asignacion->id_chofer,
+                            'ruta' =>
+                                $ruta
+                                    ? [
+                                        'id' =>
+                                            (int)
+                                            $ruta->id,
 
-                                'nombre' =>
-                                    $nombre,
+                                        'origen' =>
+                                            $ruta->origen,
 
-                                'ci' =>
-                                    $usuario?->ci,
+                                        'destino' =>
+                                            $ruta->destino,
 
-                                'carnet_sindical' =>
-                                    $chofer
-                                        ?->carnet_sindical,
-                            ],
+                                        'estado' =>
+                                            $ruta->estado,
+                                    ]
+                                    : null,
 
-                            'vehiculo' => [
-                                'id' =>
-                                    (int)
-                                    $asignacion->id_vehiculo,
+                            'chofer' =>
+                                $chofer
+                                    ? [
+                                        'id' =>
+                                            (int)
+                                            $chofer->id,
 
-                                'placa' =>
-                                    $vehiculo
-                                        ?->placa,
+                                        'nombre' =>
+                                            $nombreChofer,
 
-                                'tipo' =>
-                                    $vehiculo
-                                        ?->tipo,
+                                        'ci' =>
+                                            $usuario?->ci,
 
-                                'marca' =>
-                                    $vehiculo
-                                        ?->marca,
+                                        'carnet_sindical' =>
+                                            $chofer
+                                                ->carnet_sindical,
+                                    ]
+                                    : null,
 
-                                'modelo' =>
-                                    $vehiculo
-                                        ?->modelo,
+                            'vehiculo' =>
+                                $vehiculo
+                                    ? [
+                                        'id' =>
+                                            (int)
+                                            $vehiculo->id,
 
-                                'color' =>
-                                    $vehiculo
-                                        ?->color,
+                                        'placa' =>
+                                            $vehiculo->placa,
 
-                                'estado' =>
-                                    $vehiculo
-                                        ?->estado,
-                            ],
+                                        'tipo' =>
+                                            $vehiculo->tipo,
+
+                                        'marca' =>
+                                            $vehiculo->marca,
+
+                                        'modelo' =>
+                                            $vehiculo->modelo,
+
+                                        'color' =>
+                                            $vehiculo->color,
+
+                                        'estado' =>
+                                            $vehiculo->estado,
+                                    ]
+                                    : null,
                         ];
                     }
                 )
                 ->values();
-
-        /*
-        |--------------------------------------------------------------------------
-        | RUTAS ACTIVAS
-        |--------------------------------------------------------------------------
-        */
 
         $rutas =
             Ruta::query()
@@ -236,25 +261,21 @@ class EncomiendaService
                         'id' =>
                             (int)
                             $ruta->id,
-
                         'origen' =>
                             $ruta->origen,
-
                         'destino' =>
                             $ruta->destino,
-
                         'estado' =>
-                            $ruta->estado,
+                        $ruta->estado,
                     ]
                 )
                 ->values();
 
         return [
-            'asignaciones' =>
-                $asignaciones,
-
             'rutas' =>
                 $rutas,
+            'viajes' =>
+                $viajes,
         ];
     }
 
@@ -290,6 +311,12 @@ class EncomiendaService
                             'guia' =>
                                 null,
 
+                            'id_ruta' =>
+                                (int)
+                                $data[
+                                    'id_ruta'
+                                ],
+
                             'remitente' =>
                                 $data[
                                     'remitente'
@@ -298,16 +325,6 @@ class EncomiendaService
                             'destinatario' =>
                                 $data[
                                     'destinatario'
-                                ],
-
-                            'origen' =>
-                                $data[
-                                    'origen'
-                                ],
-
-                            'destino' =>
-                                $data[
-                                    'destino'
                                 ],
 
                             'descripcion' =>
@@ -430,42 +447,41 @@ class EncomiendaService
                 | ACTUALIZAR
                 |--------------------------------------------------------------------------
                 */
+                
+                $encomienda->fill([
 
-                $encomienda->remitente =
-                    $data[
-                        'remitente'
-                    ];
+                    'id_ruta' =>
+                        (int)
+                        $data[
+                            'id_ruta'
+                        ],
 
-                $encomienda->destinatario =
-                    $data[
-                        'destinatario'
-                    ];
+                    'remitente' =>
+                        $data[
+                            'remitente'
+                        ],
 
-                $encomienda->origen =
-                    $data[
-                        'origen'
-                    ];
+                    'destinatario' =>
+                        $data[
+                            'destinatario'
+                        ],
 
-                $encomienda->destino =
-                    $data[
-                        'destino'
-                    ];
+                    'descripcion' =>
+                        $data[
+                            'descripcion'
+                        ] ?? null,
 
-                $encomienda->descripcion =
-                    $data[
-                        'descripcion'
-                    ] ?? null;
+                    'cantidad' =>
+                        (int)
+                        $data[
+                            'cantidad'
+                        ],
 
-                $encomienda->cantidad =
-                    (int)
-                    $data[
-                        'cantidad'
-                    ];
-
-                $encomienda->precio =
-                    $data[
-                        'precio'
-                    ];
+                    'precio' =>
+                        $data[
+                            'precio'
+                        ],
+                ]);
 
                 $encomienda->save();
             }
@@ -521,12 +537,6 @@ class EncomiendaService
                 $data,
                 &$before
             ): void {
-                /*
-                |--------------------------------------------------------------------------
-                | BLOQUEAR ENCOMIENDA
-                |--------------------------------------------------------------------------
-                */
-
                 /** @var Encomienda $encomienda */
                 $encomienda =
                     Encomienda::query()
@@ -535,24 +545,30 @@ class EncomiendaService
                             $id
                         );
 
+                /*
+                |--------------------------------------------------------------------------
+                | SOLO REGISTRADA
+                |--------------------------------------------------------------------------
+                */
+
                 if (
                     !$encomienda
                         ->estaRegistrada()
                 ) {
                     throw ValidationException::withMessages([
                         'encomienda' =>
-                            'Solo se puede asignar una encomienda registrada.',
+                            'Solo se puede asignar una encomienda en estado Registrada.',
                     ]);
                 }
 
                 /*
                 |--------------------------------------------------------------------------
-                | VERIFICAR QUE NO ESTÉ ASIGNADA
+                | VALIDAR SI YA TIENE VIAJE
                 |--------------------------------------------------------------------------
                 */
 
                 $yaAsignada =
-                    VehiculoChoferRutaEncomienda::query()
+                    ViajeEncomienda::query()
                         ->where(
                             'id_encomienda',
                             $encomienda->id
@@ -563,142 +579,71 @@ class EncomiendaService
                     $yaAsignada
                 ) {
                     throw ValidationException::withMessages([
-                        'encomienda' =>
+                        'id_viaje' =>
                             'La encomienda ya se encuentra asignada a un viaje.',
                     ]);
                 }
 
-                $idAsignacion =
-                    (int)
-                    $data[
-                        'id_asignacion_vehiculo_chofer'
-                    ];
-
-                $idRuta =
-                    (int)
-                    $data[
-                        'id_ruta'
-                    ];
-
                 /*
                 |--------------------------------------------------------------------------
-                | BLOQUEAR ASIGNACIÓN
+                | OBTENER VIAJE
                 |--------------------------------------------------------------------------
-                |
-                | Esto también serializa la creación de viajes para
-                | una misma asignación Chofer + Vehículo.
-                |
                 */
 
-                /** @var AsignacionVehiculoChofer $asignacion */
-                $asignacion =
-                    AsignacionVehiculoChofer::query()
+                /** @var Viaje $viaje */
+                $viaje =
+                    Viaje::query()
                         ->with([
-                            'chofer.usuario',
-                            'vehiculo',
+                            'vehiculoChoferRuta.ruta',
+                            'vehiculoChoferRuta.asignacion.chofer.usuario',
+                            'vehiculoChoferRuta.asignacion.vehiculo',
                         ])
-                        ->lockForUpdate()
                         ->findOrFail(
-                            $idAsignacion
+                            (int)
+                            $data[
+                                'id_viaje'
+                            ]
                         );
 
                 /*
                 |--------------------------------------------------------------------------
-                | ASIGNACIÓN ACTIVA
+                | VALIDAR CONFIGURACIÓN DEL VIAJE
                 |--------------------------------------------------------------------------
                 */
 
+                $vehiculoChoferRuta =
+                    $viaje
+                        ->vehiculoChoferRuta;
+
                 if (
-                    !$asignacion
-                        ->estaActiva()
+                    !$vehiculoChoferRuta
                 ) {
                     throw ValidationException::withMessages([
-                        'id_asignacion_vehiculo_chofer' =>
-                            'La asignación de chofer y vehículo ya no se encuentra activa.',
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una asignación de vehículo, chofer y ruta.',
                     ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | VEHÍCULO OPERATIVO
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    !$asignacion->vehiculo ||
-                    mb_strtoupper(
-                        trim(
-                            (string)
-                            $asignacion
-                                ->vehiculo
-                                ->estado
-                        )
-                    ) !== 'OPERATIVO'
-                ) {
-                    throw ValidationException::withMessages([
-                        'id_asignacion_vehiculo_chofer' =>
-                            'El vehículo de la asignación no se encuentra operativo.',
-                    ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | CHOFER ACTIVO
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    !$asignacion->chofer ||
-                    !$asignacion
-                        ->chofer
-                        ->usuario ||
-                    mb_strtoupper(
-                        trim(
-                            (string)
-                            $asignacion
-                                ->chofer
-                                ->usuario
-                                ->estado
-                        )
-                    ) !== 'ACTIVO'
-                ) {
-                    throw ValidationException::withMessages([
-                        'id_asignacion_vehiculo_chofer' =>
-                            'El chofer de la asignación no se encuentra activo.',
-                    ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | BLOQUEAR RUTA
-                |--------------------------------------------------------------------------
-                */
-
-                /** @var Ruta $ruta */
                 $ruta =
-                    Ruta::query()
-                        ->lockForUpdate()
-                        ->findOrFail(
-                            $idRuta
-                        );
-
-                /*
-                |--------------------------------------------------------------------------
-                | RUTA ACTIVA
-                |--------------------------------------------------------------------------
-                */
+                    $vehiculoChoferRuta
+                        ->ruta;
 
                 if (
-                    mb_strtoupper(
-                        trim(
-                            (string)
-                            $ruta->estado
-                        )
-                    ) !== 'ACTIVA'
+                    !$ruta
                 ) {
                     throw ValidationException::withMessages([
-                        'id_ruta' =>
-                            'La ruta seleccionada no se encuentra activa.',
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una ruta asignada.',
+                    ]);
+                }
+
+                if (
+                    !$vehiculoChoferRuta
+                        ->asignacion
+                ) {
+                    throw ValidationException::withMessages([
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una asignación de vehículo y chofer.',
                     ]);
                 }
 
@@ -709,89 +654,16 @@ class EncomiendaService
                 */
 
                 if (
-                    !$this->textoIgual(
-                        (string)
-                        $encomienda->origen,
-
-                        (string)
-                        $ruta->origen
-                    )
+                    (int)
+                    $encomienda->id_ruta !==
+                    (int)
+                    $vehiculoChoferRuta->id_ruta
                 ) {
-                    throw ValidationException::withMessages([
-                        'id_ruta' =>
-                            'El origen de la ruta no coincide con el origen de la encomienda.',
+                    throw ValidationException::withMessagges([
+                        'id_viaje' =>
+                            'El viaje seleccionado no corresponde a la ruta de la encomienda.',
                     ]);
                 }
-
-                if (
-                    !$this->textoIgual(
-                        (string)
-                        $encomienda->destino,
-
-                        (string)
-                        $ruta->destino
-                    )
-                ) {
-                    throw ValidationException::withMessages([
-                        'id_ruta' =>
-                            'El destino de la ruta no coincide con el destino de la encomienda.',
-                    ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | NORMALIZAR HORA
-                |--------------------------------------------------------------------------
-                */
-
-                $horaInicio =
-                    Carbon::parse(
-                        (string)
-                        $data[
-                            'hora_inicio'
-                        ]
-                    )
-                        ->format(
-                            'Y-m-d H:i:s'
-                        );
-
-                /*
-                |--------------------------------------------------------------------------
-                | VALIDAR FECHA DE ASIGNACIÓN
-                |--------------------------------------------------------------------------
-                */
-
-                $fechaAsignacion =
-                    $asignacion
-                        ->fecha_asignacion
-                        ?->format(
-                            'Y-m-d'
-                        );
-
-                $fechaViaje =
-                    Carbon::parse(
-                        $horaInicio
-                    )
-                        ->format(
-                            'Y-m-d'
-                        );
-
-                if (
-                    $fechaAsignacion &&
-                    $fechaViaje <
-                    $fechaAsignacion
-                ) {
-                    throw ValidationException::withMessages([
-                        'hora_inicio' =>
-                            'La salida no puede ser anterior a la fecha de asignación del vehículo y chofer.',
-                    ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | SNAPSHOT ANTERIOR
-                |--------------------------------------------------------------------------
-                */
 
                 $before =
                     $this->snapshot(
@@ -800,62 +672,13 @@ class EncomiendaService
 
                 /*
                 |--------------------------------------------------------------------------
-                | BUSCAR / CREAR VIAJE
-                |--------------------------------------------------------------------------
-                |
-                | La BD ya posee UNIQUE:
-                |
-                | id_asignacion_vehiculo_chofer
-                | id_ruta
-                | hora_inicio
-                |
-                | Como bloqueamos la asignación, evitamos que dos procesos
-                | creen simultáneamente el mismo viaje para ella.
-                |
-                */
-
-                $viaje =
-                    VehiculoChoferRuta::query()
-                        ->where(
-                            'id_asignacion_vehiculo_chofer',
-                            $idAsignacion
-                        )
-                        ->where(
-                            'id_ruta',
-                            $idRuta
-                        )
-                        ->where(
-                            'hora_inicio',
-                            $horaInicio
-                        )
-                        ->first();
-
-                if (
-                    !$viaje
-                ) {
-                    $viaje =
-                        VehiculoChoferRuta::query()
-                            ->create([
-                                'id_asignacion_vehiculo_chofer' =>
-                                    $idAsignacion,
-
-                                'id_ruta' =>
-                                    $idRuta,
-
-                                'hora_inicio' =>
-                                    $horaInicio,
-                            ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | ASIGNAR ENCOMIENDA
+                | ASIGNAR ENCOMIENDA AL VIAJE
                 |--------------------------------------------------------------------------
                 */
 
-                VehiculoChoferRutaEncomienda::query()
+                ViajeEncomienda::query()
                     ->create([
-                        'id_vehiculo_chofer_ruta' =>
+                        'id_viaje' =>
                             (int)
                             $viaje->id,
 
@@ -866,7 +689,7 @@ class EncomiendaService
 
                 /*
                 |--------------------------------------------------------------------------
-                | EN TRÁNSITO
+                | CAMBIAR ESTADO
                 |--------------------------------------------------------------------------
                 */
 
@@ -956,7 +779,7 @@ class EncomiendaService
                 */
 
                 $asignada =
-                    VehiculoChoferRutaEncomienda::query()
+                    ViajeEncomienda::query()
                         ->where(
                             'id_encomienda',
                             $encomienda->id
@@ -1069,7 +892,7 @@ class EncomiendaService
                 */
 
                 $asignada =
-                    VehiculoChoferRutaEncomienda::query()
+                    ViajeEncomienda::query()
                         ->where(
                             'id_encomienda',
                             $encomienda->id
@@ -1182,7 +1005,7 @@ class EncomiendaService
     ): array {
         $encomienda
             ->loadMissing([
-                'asignacionViaje.viaje',
+                'viajeEncomienda.viaje',
             ]);
 
         return [
@@ -1224,9 +1047,15 @@ class EncomiendaService
             'estado' =>
                 $encomienda->estado,
 
+            'id_viaje' =>
+                $encomienda
+                    ->viajeEncomienda
+                    ?->id_viaje,
+
             'id_vehiculo_chofer_ruta' =>
                 $encomienda
-                    ->asignacionViaje
+                    ->viajeEncomienda
+                    ?->viaje
                     ?->id_vehiculo_chofer_ruta,
         ];
     }

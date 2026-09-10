@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Encomienda\Controllers\EncomiendaController;
+use App\Modules\Encomienda\Controllers\EncomiendaReporteController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix(
@@ -190,6 +191,196 @@ Route::prefix(
                 ])
                 ->name(
                     'encomiendas.anular'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - REGISTRADAS
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/registradas',
+                [
+                    EncomiendaReporteController::class,
+                    'registradas',
+                ]
+            )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.registradas'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - PENDIENTES
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/pendientes',
+                [
+                    EncomiendaReporteController::class,
+                    'pendientes',
+                ]
+            )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.pendientes'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - ENTREGADAS
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/entregadas',
+                [
+                    EncomiendaReporteController::class,
+                    'entregadas',
+                ]
+            )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.entregadas'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - POR DESTINO
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/por-destino',
+                [
+                    EncomiendaReporteController::class,
+                    'porDestino',
+                ]
+            )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.por-destino'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - INGRESOS
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/ingresos',
+                [
+                    EncomiendaReporteController::class,
+                    'ingresos',
+                ]
+            )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.ingresos'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - HTML PARA IMPRESIÓN
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/html',
+                [
+                    EncomiendaReporteController::class,
+                    'html',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.html'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - PDF
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/pdf',
+                [
+                    EncomiendaReporteController::class,
+                    'pdf',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.pdf'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - CSV
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/csv',
+                [
+                    EncomiendaReporteController::class,
+                    'csv',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.csv'
                 );
 
             /*

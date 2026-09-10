@@ -13,64 +13,15 @@ class StoreEncomiendaRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        $descripcion =
-            trim(
-                (string)
-                $this->input(
-                    'descripcion',
-                    ''
-                )
-            );
-
-        $this->merge([
-            'remitente' =>
-                trim(
-                    (string)
-                    $this->input(
-                        'remitente',
-                        ''
-                    )
-                ),
-
-            'destinatario' =>
-                trim(
-                    (string)
-                    $this->input(
-                        'destinatario',
-                        ''
-                    )
-                ),
-
-            'origen' =>
-                trim(
-                    (string)
-                    $this->input(
-                        'origen',
-                        ''
-                    )
-                ),
-
-            'destino' =>
-                trim(
-                    (string)
-                    $this->input(
-                        'destino',
-                        ''
-                    )
-                ),
-
-            'descripcion' =>
-                $descripcion === ''
-                    ? null
-                    : $descripcion,
-        ]);
-    }
-
     public function rules(): array
     {
         return [
+            'id_ruta' => [
+                'required',
+                'integer',
+                'exists:ruta,id',
+            ],
+
             'remitente' => [
                 'required',
                 'string',
@@ -83,23 +34,9 @@ class StoreEncomiendaRequest extends FormRequest
                 'max:255',
             ],
 
-            'origen' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'destino' => [
-                'required',
-                'string',
-                'max:255',
-                'different:origen',
-            ],
-
             'descripcion' => [
                 'nullable',
                 'string',
-                'max:2000',
             ],
 
             'cantidad' => [
@@ -120,8 +57,20 @@ class StoreEncomiendaRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'id_ruta.required' =>
+                'Debe seleccionar una ruta.',
+
+            'id_ruta.integer' =>
+                'La ruta seleccionada no es válida.',
+
+            'id_ruta.exists' =>
+                'La ruta seleccionada no existe.',
+
             'remitente.required' =>
                 'El remitente es obligatorio.',
+
+            'remitente.string' =>
+                'El remitente no es válido.',
 
             'remitente.max' =>
                 'El remitente no puede superar los 255 caracteres.',
@@ -129,26 +78,14 @@ class StoreEncomiendaRequest extends FormRequest
             'destinatario.required' =>
                 'El destinatario es obligatorio.',
 
+            'destinatario.string' =>
+                'El destinatario no es válido.',
+
             'destinatario.max' =>
                 'El destinatario no puede superar los 255 caracteres.',
 
-            'origen.required' =>
-                'El origen es obligatorio.',
-
-            'origen.max' =>
-                'El origen no puede superar los 255 caracteres.',
-
-            'destino.required' =>
-                'El destino es obligatorio.',
-
-            'destino.different' =>
-                'El destino debe ser diferente al origen.',
-
-            'destino.max' =>
-                'El destino no puede superar los 255 caracteres.',
-
-            'descripcion.max' =>
-                'La descripción no puede superar los 2000 caracteres.',
+            'descripcion.string' =>
+                'La descripción no es válida.',
 
             'cantidad.required' =>
                 'La cantidad es obligatoria.',
@@ -163,7 +100,7 @@ class StoreEncomiendaRequest extends FormRequest
                 'El precio es obligatorio.',
 
             'precio.numeric' =>
-                'El precio debe ser un valor numérico.',
+                'El precio debe ser numérico.',
 
             'precio.min' =>
                 'El precio no puede ser negativo.',
