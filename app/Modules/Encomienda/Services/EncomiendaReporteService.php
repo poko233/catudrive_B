@@ -96,6 +96,49 @@ class EncomiendaReporteService
 
     /*
     |--------------------------------------------------------------------------
+    | OBTENER REPORTE POR TIPO
+    |--------------------------------------------------------------------------
+    */
+
+    public function obtener(
+        string $tipo,
+        array $filtros
+    ): array {
+        return match ($tipo) {
+            'registradas' =>
+                $this->registradas(
+                    $filtros
+                ),
+
+            'pendientes' =>
+                $this->pendientes(
+                    $filtros
+                ),
+
+            'entregadas' =>
+                $this->entregadas(
+                    $filtros
+                ),
+
+            'por_destino' =>
+                $this->porDestino(
+                    $filtros
+                ),
+
+            'ingresos' =>
+                $this->ingresos(
+                    $filtros
+                ),
+
+            default =>
+                throw new \InvalidArgumentException(
+                    'El tipo de reporte de encomiendas no es válido.'
+                ),
+        };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | ENCOMIENDAS REGISTRADAS
     |--------------------------------------------------------------------------
     */
@@ -232,13 +275,25 @@ class EncomiendaReporteService
                     $this->queryBase(),
                     $filtros
                 )
-                ->orderBy(
-                    'destino'
-                )
                 ->orderByDesc(
                     'created_at'
                 )
-                ->get();
+                ->get()
+                ->sortBy(
+                    fn (
+                        Encomienda $encomienda
+                    ): string =>
+                        mb_strtoupper(
+                            (string)
+                            (
+                                $encomienda
+                                    ->ruta
+                                    ?->destino
+                                ?? ''
+                            )
+                        )
+                )
+                ->values();
 
         $resumenDestinos =
             $items

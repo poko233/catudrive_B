@@ -295,6 +295,96 @@ Route::prefix(
 
             /*
             |--------------------------------------------------------------------------
+            | REPORTES - HTML PARA IMPRESIÓN
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/html',
+                [
+                    EncomiendaReporteController::class,
+                    'html',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.html'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - PDF
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/pdf',
+                [
+                    EncomiendaReporteController::class,
+                    'pdf',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.pdf'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | REPORTES - CSV
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/reportes/{tipo}/csv',
+                [
+                    EncomiendaReporteController::class,
+                    'csv',
+                ]
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'registradas',
+                        'pendientes',
+                        'entregadas',
+                        'por_destino',
+                        'ingresos',
+                    ]
+                )
+                ->middleware(
+                    'permiso:Encomiendas,Encomiendas,Ver'
+                )
+                ->name(
+                    'encomiendas.reportes.csv'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
             | DETALLE
             |--------------------------------------------------------------------------
             */
