@@ -171,6 +171,59 @@ Route::prefix(
 
             /*
             |--------------------------------------------------------------------------
+            | QR - OBTENER
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/{encomienda}/qr',
+                [
+                    EncomiendaController::class,
+                    'qr',
+                ]
+            )
+                ->whereNumber('encomienda')
+                ->middleware('permiso:Encomiendas,Encomiendas,Ver')
+                ->name('encomiendas.qr');
+
+            /*
+            |--------------------------------------------------------------------------
+            | QR - ESCANEAR
+            |--------------------------------------------------------------------------
+            */
+
+            Route::post(
+                '/qr/escanear',
+                [
+                    EncomiendaController::class,
+                    'escanearQr',
+                ]
+            )
+                ->middleware([
+                    'permiso:Encomiendas,Encomiendas,Ver',
+                    'throttle:write',
+                ])
+                ->name('encomiendas.qr.escanear');
+
+            /*
+            |--------------------------------------------------------------------------
+            | QR - TICKET / COMPROBANTE
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get(
+                '/{encomienda}/qr/ticket-html',
+                [
+                    EncomiendaController::class,
+                    'ticketQr',
+                ]
+            )
+                ->whereNumber('encomienda')
+                ->middleware('permiso:Encomiendas,Encomiendas,Ver')
+                ->name('encomiendas.qr.ticket');
+
+            /*
+            |--------------------------------------------------------------------------
             | ANULAR
             |--------------------------------------------------------------------------
             */

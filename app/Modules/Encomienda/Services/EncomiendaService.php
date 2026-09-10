@@ -12,6 +12,7 @@ use App\Shared\Services\AuditService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class EncomiendaService
@@ -93,6 +94,46 @@ class EncomiendaService
                 $guia
             )
             ->firstOrFail();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BUSCAR POR QR
+    |--------------------------------------------------------------------------
+    */
+
+    public function buscarPorQr(
+        string $token
+    ): Encomienda {
+        $encomienda =
+            $this->queryBase()
+                ->where(
+                    'qr_token',
+                    $token
+                )
+                ->firstOrFail();
+
+        if (
+            !$encomienda
+                ->viajeEncomienda
+        ) {
+            throw ValidationException::withMessages([
+                'qr' =>
+                    'La encomienda todavía no se encuentra asignada a un viaje.',
+            ]);
+        }
+
+        if (
+            $encomienda
+                ->estaAnulada()
+        ) {
+            throw ValidationException::withMessages([
+                'qr' =>
+                    'La encomienda escaneada se encuentra anulada.',
+            ]);
+        }
+
+        return $encomienda;
     }
 
     /*
@@ -659,7 +700,7 @@ class EncomiendaService
                     (int)
                     $vehiculoChoferRuta->id_ruta
                 ) {
-                    throw ValidationException::withMessagges([
+                    throw ValidationException::withMessages([
                         'id_viaje' =>
                             'El viaje seleccionado no corresponde a la ruta de la encomienda.',
                     ]);
@@ -695,6 +736,12 @@ class EncomiendaService
 
                 $encomienda->estado =
                     'En tránsito';
+
+                $encomienda->qr_token =
+                    $encomienda->qr_token
+                        ?: Str::random(
+                            64
+                        );
 
                 $encomienda->save();
             }
