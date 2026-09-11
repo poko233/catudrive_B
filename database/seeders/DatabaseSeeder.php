@@ -33,7 +33,8 @@ class DatabaseSeeder extends Seeder
         $this->command->info('✅ Empresa OK');
 
         // =====================================================================
-        // 2. ACCIONES (Ver, Crear, Editar, Eliminar)
+        // 2. ACCIONES RBAC
+        //    Deben coincidir con SecurityConfig::actions()
         // =====================================================================
         foreach (['Ver', 'Crear', 'Editar', 'Eliminar'] as $accion) {
             DB::table('accion')->updateOrInsert(
@@ -68,19 +69,19 @@ class DatabaseSeeder extends Seeder
         $this->command->info('✅ Sucursal Central OK');
 
         // =====================================================================
-        // 4. ROLES (Superadmin, Administrador, Usuario)
-        //    NOTA: estos nombres deben coincidir con config('rbac.super_roles')
+        // 4. ROLES
+        //    'Superadmin' debe coincidir con config('rbac.super_roles')
         // =====================================================================
         $roles = [
-            ['rol' => 'Superadmin', 'descripcion' => 'Acceso total al sistema'],
-            ['rol' => 'Administrador', 'descripcion' => 'Acceso administrativo'],
-            ['rol' => 'Usuario', 'descripcion' => 'Acceso básico de consulta'],
+            'Superadmin' => 'Acceso total al sistema',
+            'Administrador' => 'Acceso administrativo',
+            'Usuario' => 'Acceso básico de consulta',
         ];
-        foreach ($roles as $rol) {
+        foreach ($roles as $rol => $descripcion) {
             DB::table('rol')->updateOrInsert(
-                ['rol' => $rol['rol']],
+                ['rol' => $rol],
                 [
-                    'descripcion' => $rol['descripcion'],
+                    'descripcion' => $descripcion,
                     'estado' => 'Activo',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -90,127 +91,107 @@ class DatabaseSeeder extends Seeder
         $rolIds = DB::table('rol')->pluck('id', 'rol');
         $this->command->info('✅ Roles OK');
 
-       // =====================================================================
-// 5. MÓDULOS
-// =====================================================================
-//
-// orden controla la posición global en el Sidebar.
-//
-// 1 = Dashboard
-// 2 = Configuracion
-//
-// Los módulos nuevos deberán continuar:
-// 3, 4, 5...
-//
-// =====================================================================
-
-$modulos = [
-    [
-        'modulo' =>
-            'Dashboard',
-
-        'icono' =>
-            'dashboard',
-
-        'descripcion' =>
-            'Panel principal del sistema',
-
-        'orden' =>
-            1,
-    ],
-
-    [
-        'modulo' =>
-            'Configuracion',
-
-        'icono' =>
-            'settings',
-
-        'descripcion' =>
-            'Panel de administración del sistema',
-
-        'orden' =>
-            2,
-    ],
-];
-
-foreach (
-    $modulos
-    as $mod
-) {
-    DB::table(
-        'modulo'
-    )
-        ->updateOrInsert(
-            [
-                'modulo' =>
-                    $mod[
-                        'modulo'
-                    ],
+        // =====================================================================
+        // 5. MÓDULOS — estructura completa del sistema
+        // =====================================================================
+        $modulos = [
+            'Inicio' => [
+                'icono' => 'home',
+                'descripcion' => 'Panel principal del sistema',
+                'orden' => 1,
             ],
+            'Configuracion' => [
+                'icono' => 'settings',
+                'descripcion' => 'Panel de administración del sistema',
+                'orden' => 2,
+            ],
+            'Recursos Humanos' => [
+                'icono' => 'people',
+                'descripcion' => 'Se gestionará la información de todos los Usuarios del sistema',
+                'orden' => 3,
+            ],
+            'Choferes' => [
+                'icono' => 'id-card',
+                'descripcion' => 'Gestión de la información de los choferes',
+                'orden' => 4,
+            ],
+            'Rutas' => [
+                'icono' => 'navigate',
+                'descripcion' => 'Gestión de Rutas de transporte',
+                'orden' => 5,
+            ],
+            'Vehiculos' => [
+                'icono' => 'car',
+                'descripcion' => 'Gestión de vehículos',
+                'orden' => 6,
+            ],
+            'Asignaciones' => [
+                'icono' => 'document-text',
+                'descripcion' => 'Asignación de Vehículos, Choferes.',
+                'orden' => 7,
+            ],
+            'Ventas' => [
+                'icono' => 'card',
+                'descripcion' => 'Módulo de ventas del sistema',
+                'orden' => 8,
+            ],
+            'Encomiendas' => [
+                'icono' => 'cube',
+                'descripcion' => null,
+                'orden' => 9,
+            ],
+        ];
 
-            [
-                'descripcion' =>
-                    $mod[
-                        'descripcion'
-                    ],
-
-                'icono' =>
-                    $mod[
-                        'icono'
-                    ],
-
-                'orden' =>
-                    $mod[
-                        'orden'
-                    ],
-
-                'estado' =>
-                    'Activo',
-
-                'created_at' =>
-                    now(),
-
-                'updated_at' =>
-                    now(),
-            ]
-        );
-}
-
-$moduloIds =
-    DB::table(
-        'modulo'
-    )
-        ->pluck(
-            'id',
-            'modulo'
-        );
-
-$this->command->info(
-    '✅ Módulos OK'
-);
+        foreach ($modulos as $nombre => $data) {
+            DB::table('modulo')->updateOrInsert(
+                ['modulo' => $nombre],
+                [
+                    'icono' => $data['icono'],
+                    'descripcion' => $data['descripcion'],
+                    'orden' => $data['orden'],
+                    'estado' => 'Activo',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+        $moduloIds = DB::table('modulo')->pluck('id', 'modulo');
+        $this->command->info('✅ Módulos OK (' . count($modulos) . ')');
 
         // =====================================================================
-        // 6. FORMULARIOS
-        //    Nombres exactos que espera el middleware permiso y el frontend
+        // 6. FORMULARIOS — estructura completa
+        //    Cada entrada declara su módulo padre, del que se deriva
+        //    automáticamente el pivot formulario_modulo.
         // =====================================================================
         $formularios = [
-            ['formulario' => 'Inicio', 'ruta' => '/dashboard'],
-            ['formulario' => 'Roles', 'ruta' => '/roles'],
-            ['formulario' => 'Modulos', 'ruta' => '/modulos'],
-            ['formulario' => 'Formularios', 'ruta' => '/formularios'],
-            ['formulario' => 'Permisos', 'ruta' => '/permisos'],
-            ['formulario' => 'Empresas', 'ruta' => '/empresa'],
-            ['formulario' => 'Sucursales', 'ruta' => '/sucursales'],
-            ['formulario' => 'Usuarios', 'ruta' => '/usuarios'],
-            ['formulario' => 'Form -> Módulo', 'ruta' => '/formulario_modulo'],
-            ['formulario' => 'Módulo -> Rol', 'ruta' => '/modulo_rol'],
+            // ─── Configuración / Núcleo ──────────────────────────────
+            'Inicio' => ['ruta' => '/dashboard', 'descripcion' => null, 'modulo' => 'Inicio'],
+            'Roles' => ['ruta' => '/roles', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Modulos' => ['ruta' => '/modulos', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Formularios' => ['ruta' => '/formularios', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Permisos' => ['ruta' => '/permisos', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Empresas' => ['ruta' => '/empresa', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Sucursales' => ['ruta' => '/sucursales', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Usuarios' => ['ruta' => '/usuarios', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Form -> Módulo' => ['ruta' => '/formulario_modulo', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Módulo -> Rol' => ['ruta' => '/modulo_rol', 'descripcion' => null, 'modulo' => 'Configuracion'],
+
+            // ─── Dominio ─────────────────────────────────────────────
+            'Recursos Humanos' => ['ruta' => '/recursoshumanos', 'descripcion' => 'Gestión de Usuarios y su información', 'modulo' => 'Recursos Humanos'],
+            'Choferes' => ['ruta' => '/choferes', 'descripcion' => 'Gestión de la información de los Choferes', 'modulo' => 'Choferes'],
+            'Rutas' => ['ruta' => '/rutas', 'descripcion' => 'Gestión de las Rutas de transporte', 'modulo' => 'Rutas'],
+            'Vehiculos' => ['ruta' => '/vehiculos', 'descripcion' => 'Gestión de vehículos', 'modulo' => 'Vehiculos'],
+            'Asignaciones' => ['ruta' => '/asignaciones-vehiculos', 'descripcion' => 'Asignaciones de vehículo, choferes y rutas', 'modulo' => 'Asignaciones'],
+            'Pasajes' => ['ruta' => '/venta', 'descripcion' => 'Módulo de ventas de pasajes', 'modulo' => 'Ventas'],
+            'Encomiendas' => ['ruta' => '/encomiendas', 'descripcion' => null, 'modulo' => 'Encomiendas'],
         ];
-        foreach ($formularios as $f) {
+
+        foreach ($formularios as $nombre => $data) {
             DB::table('formulario')->updateOrInsert(
-                ['formulario' => $f['formulario']],
+                ['formulario' => $nombre],
                 [
-                    'ruta' => $f['ruta'],
+                    'ruta' => $data['ruta'],
+                    'descripcion' => $data['descripcion'],
                     'estado' => 'Activo',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -218,134 +199,134 @@ $this->command->info(
             );
         }
         $formularioIds = DB::table('formulario')->pluck('id', 'formulario')->toArray();
-        $this->command->info('✅ Formularios OK');
+        $this->command->info('✅ Formularios OK (' . count($formularios) . ')');
 
         // =====================================================================
-        // 7. ASIGNAR FORMULARIOS A MÓDULOS
+        // 7. FORMULARIO ↔ MÓDULO
+        //    Derivado automáticamente del array $formularios.
         // =====================================================================
-        $idDashboard = $moduloIds['Dashboard'] ?? null;
-        $idConfiguracion = $moduloIds['Configuracion'] ?? null;
+        foreach ($formularios as $nombreForm => $data) {
+            $idForm = $formularioIds[$nombreForm] ?? null;
+            $idMod = $moduloIds[$data['modulo']] ?? null;
 
-        $asignaciones = [
-            $idDashboard => ['Inicio'],
-            $idConfiguracion => [
-                'Roles',
-                'Modulos',
-                'Formularios',
-                'Permisos',
-                'Empresas',
-                'Sucursales',
-                'Usuarios',
-                'Form -> Módulo',
-                'Módulo -> Rol',
-            ],
-        ];
-
-        foreach ($asignaciones as $idModulo => $nombres) {
-            if (!$idModulo) {
+            if (!$idForm || !$idMod) {
                 continue;
             }
-            foreach ($nombres as $nombre) {
-                $idForm = $formularioIds[$nombre] ?? null;
-                if (!$idForm) {
-                    continue;
-                }
-                DB::table('formulario_modulo')->updateOrInsert(
-                    ['id_modulo' => $idModulo, 'id_formulario' => $idForm],
-                    ['created_at' => now(), 'updated_at' => now()]
-                );
-            }
+
+            DB::table('formulario_modulo')->updateOrInsert(
+                ['id_modulo' => $idMod, 'id_formulario' => $idForm],
+                ['created_at' => now(), 'updated_at' => now()]
+            );
         }
         $this->command->info('✅ Formulario ↔ Módulo OK');
 
         // =====================================================================
-        // 8. ASIGNAR MÓDULOS A ROLES (modulo_rol)
+        // 8. MÓDULO ↔ ROL
+        //
+        //    Distribución real del dump:
+        //      Superadmin    → los 9 módulos
+        //      Administrador → Inicio, Configuracion, Vehiculos
+        //      Usuario       → Inicio
         // =====================================================================
-        $idSuperadmin = $rolIds['Superadmin'] ?? null;
-        $idAdministrador = $rolIds['Administrador'] ?? null;
-        $idUsuario = $rolIds['Usuario'] ?? null;
+        $planModuloRol = [
+            'Superadmin' => '*',
+            'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos'],
+            'Usuario' => ['Inicio'],
+        ];
 
-        // Superadmin: todos los módulos
-        foreach ([$idDashboard, $idConfiguracion] as $idMod) {
-            if ($idMod && $idSuperadmin) {
-                DB::table('modulo_rol')->updateOrInsert(
-                    ['id_rol' => $idSuperadmin, 'id_modulo' => $idMod],
-                    ['created_at' => now(), 'updated_at' => now()]
-                );
+        foreach ($planModuloRol as $nombreRol => $modulosPermitidos) {
+            $idRol = $rolIds[$nombreRol] ?? null;
+            if (!$idRol) {
+                continue;
             }
-        }
-        // Administrador: igual que Superadmin (tiene acceso a ambos módulos)
-        foreach ([$idDashboard, $idConfiguracion] as $idMod) {
-            if ($idMod && $idAdministrador) {
-                DB::table('modulo_rol')->updateOrInsert(
-                    ['id_rol' => $idAdministrador, 'id_modulo' => $idMod],
-                    ['created_at' => now(), 'updated_at' => now()]
-                );
+
+            DB::table('modulo_rol')->where('id_rol', $idRol)->delete();
+
+            $listaModulos = ($modulosPermitidos === '*')
+                ? array_keys($modulos)
+                : $modulosPermitidos;
+
+            $filas = [];
+            foreach ($listaModulos as $nombreMod) {
+                $idMod = $moduloIds[$nombreMod] ?? null;
+                if (!$idMod) {
+                    continue;
+                }
+                $filas[] = [
+                    'id_rol' => $idRol,
+                    'id_modulo' => $idMod,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
-        }
-        // Usuario: solo Dashboard
-        if ($idDashboard && $idUsuario) {
-            DB::table('modulo_rol')->updateOrInsert(
-                ['id_rol' => $idUsuario, 'id_modulo' => $idDashboard],
-                ['created_at' => now(), 'updated_at' => now()]
-            );
+
+            if ($filas !== []) {
+                DB::table('modulo_rol')->insert($filas);
+            }
         }
         $this->command->info('✅ Módulo ↔ Rol OK');
 
         // =====================================================================
         // 9. PERMISOS (formulario_permiso)
+        //
+        //    Distribución idéntica al dump de producción:
+        //      Superadmin    → TODOS los formularios × 4 acciones         = 68
+        //      Administrador → Inicio + Configuracion + Vehiculos × 4    = 44
+        //      Usuario       → Inicio × [Ver]                            = 1
+        //                                                                   ───
+        //                                                                   113
         // =====================================================================
-        $todosFormularios = $formularioIds;
-        // Superadmin: todas las acciones en todos los formularios
-        if ($idSuperadmin) {
-            DB::table('formulario_permiso')->where('id_rol', $idSuperadmin)->delete();
-            $permisos = [];
-            foreach ($todosFormularios as $nombre => $idForm) {
-                // Determinar el módulo al que pertenece el formulario
-                $idModulo = in_array($nombre, ['Inicio']) ? $idDashboard : $idConfiguracion;
-                if (!$idModulo) {
+        $planPermisos = [
+            'Superadmin' => [
+                'modulos' => '*',
+                'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
+            ],
+            'Administrador' => [
+                'modulos' => ['Inicio', 'Configuracion', 'Vehiculos'],
+                'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
+            ],
+            'Usuario' => [
+                'modulos' => ['Inicio'],
+                'acciones' => ['Ver'],
+            ],
+        ];
+
+        foreach ($planPermisos as $nombreRol => $plan) {
+            $idRol = $rolIds[$nombreRol] ?? null;
+            if (!$idRol) {
+                continue;
+            }
+
+            DB::table('formulario_permiso')->where('id_rol', $idRol)->delete();
+
+            $filas = [];
+
+            foreach ($formularios as $nombreForm => $data) {
+                $nombreMod = $data['modulo'];
+
+                if (
+                    $plan['modulos'] !== '*' &&
+                    !in_array($nombreMod, $plan['modulos'], true)
+                ) {
                     continue;
                 }
-                foreach ($accionIds as $idAccion) {
-                    $permisos[] = [
-                        'id_rol' => $idSuperadmin,
-                        'id_modulo' => $idModulo,
-                        'id_formulario' => $idForm,
-                        'id_accion' => $idAccion,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
+
+                $idForm = $formularioIds[$nombreForm] ?? null;
+                $idMod = $moduloIds[$nombreMod] ?? null;
+
+                if (!$idForm || !$idMod) {
+                    continue;
                 }
-            }
-            DB::table('formulario_permiso')->insert($permisos);
-            $this->command->info("✅ Superadmin: " . count($permisos) . " permisos");
-        }
 
-        // Administrador: Dashboard solo Ver; Configuracion todas las acciones
-        if ($idAdministrador) {
-            DB::table('formulario_permiso')->where('id_rol', $idAdministrador)->delete();
-            $permisosAdmin = [];
-            $idVer = $accionIds['Ver'] ?? null;
+                foreach ($plan['acciones'] as $nombreAccion) {
+                    $idAccion = $accionIds[$nombreAccion] ?? null;
+                    if (!$idAccion) {
+                        continue;
+                    }
 
-            // Dashboard -> Inicio (solo Ver)
-            if ($idDashboard && $idVer && isset($todosFormularios['Inicio'])) {
-                $permisosAdmin[] = [
-                    'id_rol' => $idAdministrador,
-                    'id_modulo' => $idDashboard,
-                    'id_formulario' => $todosFormularios['Inicio'],
-                    'id_accion' => $idVer,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-
-            // Configuracion -> todos los formularios de ese módulo, con todas las acciones
-            $formulariosConfig = array_diff_key($todosFormularios, ['Inicio' => true]);
-            foreach ($formulariosConfig as $nombre => $idForm) {
-                foreach ($accionIds as $idAccion) {
-                    $permisosAdmin[] = [
-                        'id_rol' => $idAdministrador,
-                        'id_modulo' => $idConfiguracion,
+                    $filas[] = [
+                        'id_rol' => $idRol,
+                        'id_modulo' => $idMod,
                         'id_formulario' => $idForm,
                         'id_accion' => $idAccion,
                         'created_at' => now(),
@@ -354,36 +335,18 @@ $this->command->info(
                 }
             }
 
-            if ($permisosAdmin) {
-                DB::table('formulario_permiso')->insert($permisosAdmin);
+            if ($filas !== []) {
+                DB::table('formulario_permiso')->insert($filas);
             }
-            $this->command->info("✅ Administrador: " . count($permisosAdmin) . " permisos");
-        }
 
-        // Usuario: Dashboard solo Ver
-        if ($idUsuario) {
-            DB::table('formulario_permiso')->where('id_rol', $idUsuario)->delete();
-            $permisosUser = [];
-            if ($idDashboard && $idVer && isset($todosFormularios['Inicio'])) {
-                $permisosUser[] = [
-                    'id_rol' => $idUsuario,
-                    'id_modulo' => $idDashboard,
-                    'id_formulario' => $todosFormularios['Inicio'],
-                    'id_accion' => $idVer,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-            if ($permisosUser) {
-                DB::table('formulario_permiso')->insert($permisosUser);
-            }
-            $this->command->info("✅ Usuario: " . count($permisosUser) . " permisos");
+            $this->command->info("✅ {$nombreRol}: " . count($filas) . ' permisos');
         }
 
         // =====================================================================
         // 10. USUARIO ADMINISTRADOR
         // =====================================================================
         $idUser = DB::table('user')->where('usuario', 'admin')->value('id');
+
         if (!$idUser) {
             $idUser = DB::table('user')->insertGetId([
                 'usuario' => 'admin',
@@ -391,6 +354,8 @@ $this->command->info(
                 'ci' => '00000001',
                 'nombres' => 'Administrador',
                 'primer_apellido' => 'Sistema',
+                'genero' => 'Masculino',
+                'expedido' => 'CBBA',
                 'estado' => 'Activo',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -400,7 +365,7 @@ $this->command->info(
             $this->command->info("ℹ️  Usuario 'admin' ya existe (id={$idUser})");
         }
 
-        // Asignar sucursal Central al usuario (obligatorio para middleware CheckSucursal)
+        // Sucursal obligatoria para middleware CheckSucursal
         if ($idSucursal) {
             DB::table('user_sucursal')->updateOrInsert(
                 ['id_user' => $idUser, 'id_sucursal' => $idSucursal],
@@ -408,7 +373,8 @@ $this->command->info(
             );
         }
 
-        // Asignar rol Superadmin al usuario admin
+        // Rol Superadmin
+        $idSuperadmin = $rolIds['Superadmin'] ?? null;
         if ($idSuperadmin) {
             DB::table('user_rol')->updateOrInsert(
                 ['id_user' => $idUser, 'id_rol' => $idSuperadmin],
