@@ -4,7 +4,115 @@
 <meta charset="utf-8">
 <title>{{ $tipo === 'comprobante' ? 'Detalle de encomienda' : 'Etiqueta de encomienda' }}</title>
 <style>
-@page{size:80mm {{ $tipo === 'comprobante' ? '115mm' : '92mm' }};margin:0}*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;background:#fff!important;width:80mm!important;min-width:80mm!important;overflow:visible!important}body{font-family:Arial,sans-serif;color:#000;font-size:11px;line-height:1.25;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ticket{width:80mm;margin:0 auto;padding:4mm 5mm 3mm;break-inside:avoid;page-break-inside:avoid}.center{text-align:center}.title{font-size:15px;font-weight:700}.guide{font-size:17px;font-weight:700;margin:4px 0}.line{border-top:1px dashed #000;margin:5px 0}.row{margin:2px 0}.label{font-weight:700}.qr{width:40mm;height:40mm;display:block;margin:6px auto 4px}.small{font-size:8px;word-break:break-all}.footer{margin-top:5px;font-size:8px}@media print{html,body{width:80mm!important;height:auto!important}.ticket{width:80mm!important;margin:0!important;padding:3mm 5mm!important}img{max-width:100%!important;page-break-inside:avoid!important}body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+@page{
+    size:80mm {{ $tipo === 'comprobante' ? '115mm' : '92mm' }};
+    margin:0;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+html,body{
+    margin:0!important;
+    padding:0!important;
+    width:80mm!important;
+    background:#fff!important;
+}
+
+body{
+    font-family:Arial,sans-serif;
+    color:#000;
+    font-size:10px;
+    line-height:1.15;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+}
+
+.ticket{
+    width:80mm;
+    margin:0;
+    padding:2mm 4mm;
+    overflow:hidden;
+    break-inside:avoid;
+    page-break-inside:avoid;
+}
+
+.center{
+    text-align:center;
+}
+
+.title{
+    font-size:14px;
+    line-height:1.1;
+    font-weight:700;
+}
+
+.guide{
+    font-size:16px;
+    line-height:1.1;
+    font-weight:700;
+    margin:2px 0;
+}
+
+.line{
+    border-top:1px dashed #000;
+    margin:3px 0;
+}
+
+.row{
+    margin:1px 0;
+    line-height:1.15;
+}
+
+.label{
+    font-weight:700;
+}
+
+.qr{
+    display:block;
+    width:34mm;
+    height:34mm;
+    margin:3px auto 2px;
+}
+
+.small{
+    font-size:7px;
+    line-height:1.1;
+    word-break:break-all;
+}
+
+.footer{
+    margin-top:2px;
+    font-size:7px;
+    line-height:1.1;
+}
+
+@media print{
+    html,body{
+        width:80mm!important;
+        height:92mm!important;
+        margin:0!important;
+        padding:0!important;
+        overflow:hidden!important;
+    }
+
+    .ticket{
+        width:80mm!important;
+        height:auto!important;
+        max-height:92mm!important;
+        margin:0!important;
+        padding:2mm 4mm!important;
+        overflow:hidden!important;
+        break-inside:avoid!important;
+        page-break-inside:avoid!important;
+    }
+
+    img{
+        page-break-inside:avoid!important;
+        break-inside:avoid!important;
+    }
+}
 </style>
 </head>
 <body>
