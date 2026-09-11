@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/met4s0ft3/tecnologico.metasoft-bolivia.com/api
+    - export DEPLOYPATH=/home/met4s0ft3/catudrive.metasoft-bolivia.com/api
 
     # 1. Borrar TODO excepto .env, storage y .htaccess
     - find $DEPLOYPATH -mindepth 1 -not \( -name ".env" -o -name "storage" -o -name ".htaccess" \) -exec rm -rf {} \; 2>/dev/null || true
