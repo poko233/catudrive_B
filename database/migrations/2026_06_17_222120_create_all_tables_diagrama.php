@@ -144,14 +144,14 @@ return new class extends Migration {
             $table->unsignedInteger('orden')->default(0);
             $table->enum('estado', ['Activo', 'Inactivo'])->default('Activo');
             $table->timestamps();
-               /*
-            |--------------------------------------------------------------------------
-            | Índices
-            |--------------------------------------------------------------------------
-            */
+            /*
+         |--------------------------------------------------------------------------
+         | Índices
+         |--------------------------------------------------------------------------
+         */
             $table->index('orden');
             $table->index(['estado', 'orden']);
-                });
+        });
 
         // ─── Formulario ──────────────────────────
         Schema::create('formulario', function (Blueprint $table) {
@@ -204,7 +204,7 @@ return new class extends Migration {
             $table->foreignId('id_formulario')->constrained('formulario')->onDelete('cascade');
             $table->foreignId('id_accion')->constrained('accion')->onDelete('cascade');
             $table->timestamps();
-            $table->unique(['id_rol', 'id_modulo', 'id_formulario', 'id_accion']);
+            $table->unique(['id_rol', 'id_modulo', 'id_formulario', 'id_accion'], 'form_permiso_unique');
         });
 
         Schema::create('formulario_accion', function (Blueprint $table) {
