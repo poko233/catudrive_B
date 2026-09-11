@@ -7,17 +7,21 @@ namespace App\Modules\Encomienda\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Encomienda\Requests\AsignarEncomiendaRequest;
 use App\Modules\Encomienda\Requests\EntregarEncomiendaRequest;
+use App\Modules\Encomienda\Requests\EscanearEncomiendaQrRequest;
 use App\Modules\Encomienda\Requests\StoreEncomiendaRequest;
 use App\Modules\Encomienda\Requests\UpdateEncomiendaRequest;
 use App\Modules\Encomienda\Resource\EncomiendaResource;
 use App\Modules\Encomienda\Services\EncomiendaService;
+use App\Modules\Encomienda\Services\EncomiendaQrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class EncomiendaController extends Controller
 {
     public function __construct(
-        private readonly EncomiendaService $service
+        private readonly EncomiendaService $service,
+        private readonly EncomiendaQrService $qrService
     ) {
     }
 
@@ -244,6 +248,121 @@ class EncomiendaController extends Controller
                     $request
                 ),
         ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | QR
+    |--------------------------------------------------------------------------
+    */
+
+    public function qr(
+        Request $request,
+        int $encomienda
+    ): JsonResponse {
+        $item =
+            $this->service
+                ->obtener(
+                    $encomienda
+                );
+
+        $contenido =
+            $this->qrService
+                ->contenido(
+                    $item
+                );
+
+        return response()->json([
+            'qr' => [
+                'contenido' =>
+                    $contenido,
+                'imagen' =>
+                    $this->qrService
+                        ->imagen(
+                            $contenido
+                        ),
+            ],
+            'encomienda' =>
+                (new EncomiendaResource($item))
+                    ->resolve($request),
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESCANEAR QR
+    |--------------------------------------------------------------------------
+    */
+
+    public function escanearQr(
+        EscanearEncomiendaQrRequest $request
+    ): JsonResponse {
+        $token =
+            $this->qrService
+                ->tokenDesdeContenido(
+                    (string) $request->validated('qr')
+                );
+
+        $item =
+            $this->service
+                ->buscarPorQr(
+                    $token
+                );
+
+        return response()->json([
+            'encomienda' =>
+                (new EncomiendaResource($item))
+                    ->resolve($request),
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TICKET QR / COMPROBANTE
+    |--------------------------------------------------------------------------
+    */
+
+    public function ticketQr(
+        Request $request,
+        int $encomienda
+    ): Response {
+        $item =
+            $this->service
+                ->obtener(
+                    $encomienda
+                );
+
+        $contenido =
+            $this->qrService
+                ->contenido(
+                    $item
+                );
+
+        $tipo =
+            $request->query('tipo') === 'comprobante'
+                ? 'comprobante'
+                : 'etiqueta';
+
+        return response()
+            ->view(
+                'encomiendas.ticket-thermal',
+                [
+                    'encomienda' =>
+                        $item,
+                    'qrImage' =>
+                        $this->qrService
+                            ->imagen(
+                                $contenido
+                            ),
+                    'tipo' =>
+                        $tipo,
+                ]
+            )
+            ->header(
+                'Content-Type',
+                'text/html'
+            );
     }
 
     /*

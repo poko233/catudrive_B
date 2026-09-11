@@ -203,6 +203,11 @@ class EncomiendaResource extends JsonResource
                         ),
                 },
 
+            'qr_disponible' =>
+                $viaje !== null &&
+                !empty($this->qr_token) &&
+                !$this->estaAnulada(),
+
             'viaje' =>
                 $viaje
                     ? [

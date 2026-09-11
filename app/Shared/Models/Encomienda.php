@@ -19,6 +19,7 @@ class Encomienda extends Model
 
     protected $fillable = [
         'guia',
+        'qr_token',
         'id_ruta',
         'remitente',
         'destinatario',
