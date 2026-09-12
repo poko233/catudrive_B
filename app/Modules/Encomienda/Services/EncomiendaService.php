@@ -9,8 +9,8 @@ use App\Shared\Models\Viaje;
 use App\Shared\Models\ViajeEncomienda;
 use App\Shared\Models\Ruta;
 use App\Shared\Services\AuditService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -45,14 +45,179 @@ class EncomiendaService
     |--------------------------------------------------------------------------
     */
 
-    public function listar(): Collection
+    public function listar(
+        array $filtros = [],
+        int $perPage = 15
+    ): LengthAwarePaginator {
+        $query =
+            $this
+                ->queryBase();
+
+        $estado =
+            trim(
+                (string) ($filtros['estado'] ?? '')
+            );
+
+        if ($estado !== '') {
+            $query
+                ->where(
+                    'estado',
+                    $this->estadoBaseDatos(
+                        $estado
+                    )
+                );
+        }
+
+        $buscar =
+            trim(
+                (string) ($filtros['buscar'] ?? '')
+            );
+
+        if ($buscar !== '') {
+            $like =
+                '%' . $buscar . '%';
+
+            $query
+                ->where(
+                    function (Builder $subQuery) use ($like, $buscar): void {
+                        $subQuery
+                            ->where('guia', 'like', $like)
+                            ->orWhere('remitente', 'like', $like)
+                            ->orWhere('destinatario', 'like', $like)
+                            ->orWhere('descripcion', 'like', $like)
+                            ->orWhereHas(
+                                'ruta',
+                                fn (Builder $ruta) =>
+                                    $ruta
+                                        ->where('origen', 'like', $like)
+                                        ->orWhere('destino', 'like', $like)
+                            )
+                            ->orWhereHas(
+                                'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
+                                fn (Builder $vehiculo) =>
+                                    $vehiculo
+                                        ->where('placa', 'like', $like)
+                            )
+                            ->orWhereHas(
+                                'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
+                                fn (Builder $usuario) =>
+                                    $usuario
+                                        ->where('nombres', 'like', $like)
+                                        ->orWhere('primer_apellido', 'like', $like)
+                                        ->orWhere('segundo_apellido', 'like', $like)
+                            );
+
+                        if (is_numeric($buscar)) {
+                            $subQuery
+                                ->orWhere(
+                                    'cantidad',
+                                    (int) $buscar
+                                )
+                                ->orWhere(
+                                    'precio',
+                                    (float) $buscar
+                                );
+                        }
+
+                        if (
+                            preg_match(
+                                '/^\d{4}-\d{2}-\d{2}$/',
+                                $buscar
+                            ) === 1
+                        ) {
+                            $subQuery
+                                ->orWhereDate(
+                                    'created_at',
+                                    $buscar
+                                );
+                        }
+                    }
+                );
+        }
+
+        return $query
+            ->orderByDesc('id')
+            ->paginate(
+                max(1, min($perPage, 100))
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESUMEN GENERAL
+    |--------------------------------------------------------------------------
+    */
+
+    public function resumen(): array
     {
-        return $this
-            ->queryBase()
-            ->orderByDesc(
-                'id'
-            )
-            ->get();
+        $conteos =
+            Encomienda::query()
+                ->selectRaw(
+                    'estado, COUNT(*) AS cantidad'
+                )
+                ->groupBy(
+                    'estado'
+                )
+                ->pluck(
+                    'cantidad',
+                    'estado'
+                );
+
+        $ingresos =
+            Encomienda::query()
+                ->where(
+                    'estado',
+                    '!=',
+                    'Anulada'
+                )
+                ->sum('precio');
+
+        return [
+            'total' =>
+                (int) $conteos->sum(),
+
+            'registradas' =>
+                (int) ($conteos['Registrada'] ?? 0),
+
+            'enTransito' =>
+                (int) ($conteos['En tránsito'] ?? 0),
+
+            'entregadas' =>
+                (int) ($conteos['Entregada'] ?? 0),
+
+            'anuladas' =>
+                (int) ($conteos['Anulada'] ?? 0),
+
+            'ingresos' =>
+                (float) $ingresos,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESTADO DE API A BASE DE DATOS
+    |--------------------------------------------------------------------------
+    */
+
+    private function estadoBaseDatos(
+        string $estado
+    ): string {
+        return match ($estado) {
+            'REGISTRADA' =>
+                'Registrada',
+
+            'EN_TRANSITO' =>
+                'En tránsito',
+
+            'ENTREGADA' =>
+                'Entregada',
+
+            'ANULADA' =>
+                'Anulada',
+
+            default =>
+                $estado,
+        };
     }
 
     /*
