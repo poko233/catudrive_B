@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Shared\Models;
 
+use App\Modules\Auth\Observers\UserObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+#[ObservedBy(UserObserver::class)]
 class User extends Authenticatable
 {
     use HasApiTokens;
@@ -53,6 +56,7 @@ class User extends Authenticatable
             'id' => 'integer',
             'fecha_nac' => 'date:Y-m-d',
             'estado' => 'string',
+            'password' => 'hashed',
         ];
     }
 

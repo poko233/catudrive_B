@@ -29,7 +29,7 @@ Route::post(
 
 /*
 |--------------------------------------------------------------------------
-| RECUPERACIÓN
+| RECUPERACIÓN DE CONTRASEÑA
 |--------------------------------------------------------------------------
 */
 
@@ -47,12 +47,6 @@ Route::post(
         'auth.forgot-password'
     );
 
-/*
-|--------------------------------------------------------------------------
-| VALIDAR CÓDIGO
-|--------------------------------------------------------------------------
-*/
-
 Route::post(
     '/verify-reset-code',
     [
@@ -66,12 +60,6 @@ Route::post(
     ->name(
         'auth.verify-reset-code'
     );
-
-/*
-|--------------------------------------------------------------------------
-| CAMBIAR PASSWORD
-|--------------------------------------------------------------------------
-*/
 
 Route::post(
     '/reset-password',
@@ -97,72 +85,88 @@ Route::middleware([
     'auth:sanctum',
     'throttle:api',
 ])->group(
-    function (): void {
-        Route::post(
-            '/logout',
-            [
-                AuthController::class,
-                'logout',
-            ]
-        )
-            ->middleware(
-                'throttle:write'
+        function (): void {
+            Route::post(
+                '/logout',
+                [
+                    AuthController::class,
+                    'logout',
+                ]
             )
-            ->name(
-                'auth.logout'
-            );
-
-        Route::middleware(
-            'usuario.activo'
-        )->group(
-            function (): void {
-                Route::get(
-                    '/me',
-                    [
-                        AuthController::class,
-                        'me',
-                    ]
+                ->middleware(
+                    'throttle:write'
                 )
-                    ->name(
-                        'auth.me'
-                    );
+                ->name(
+                    'auth.logout'
+                );
 
-                Route::get(
-                    '/me/permisos',
-                    [
-                        AuthController::class,
-                        'mePermisos',
-                    ]
-                )
-                    ->name(
-                        'auth.permissions'
-                    );
+            Route::middleware(
+                'usuario.activo'
+            )->group(
+                    function (): void {
+                        Route::get(
+                            '/me',
+                            [
+                                AuthController::class,
+                                'me',
+                            ]
+                        )
+                            ->name(
+                                'auth.me'
+                            );
 
-                Route::get(
-                    '/sidebar',
-                    [
-                        SidebarController::class,
-                        'index',
-                    ]
-                )
-                    ->name(
-                        'auth.sidebar'
-                    );
+                        Route::get(
+                            '/me/permisos',
+                            [
+                                AuthController::class,
+                                'mePermisos',
+                            ]
+                        )
+                            ->name(
+                                'auth.permissions'
+                            );
 
-                Route::put(
-                    '/change-password',
-                    [
-                        AuthController::class,
-                        'changePassword',
-                    ]
-                )
-                    ->middleware(
-                        'throttle:sensitive'
-                    )
-                    ->name(
-                        'auth.change-password'
-                    );
-            }
-        );
-    }
-);
+                        Route::get(
+                            '/sidebar',
+                            [
+                                SidebarController::class,
+                                'index',
+                            ]
+                        )
+                            ->name(
+                                'auth.sidebar'
+                            );
+
+                        Route::put(
+                            '/change-password',
+                            [
+                                AuthController::class,
+                                'changePassword',
+                            ]
+                        )
+                            ->middleware(
+                                'throttle:sensitive'
+                            )
+                            ->name(
+                                'auth.change-password'
+                            );
+
+
+                        Route::post(
+                            '/register',
+                            [
+                                AuthController::class,
+                                'register',
+                            ]
+                        )
+                            ->middleware([
+                                'permiso:Configuracion,Usuarios,Crear',
+                                'throttle:sensitive',
+                            ])
+                            ->name(
+                                'auth.register'
+                            );
+                    }
+                );
+        }
+    );
