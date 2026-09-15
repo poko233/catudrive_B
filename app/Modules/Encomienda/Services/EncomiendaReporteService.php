@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Modules\Encomienda\Services;
 
+use App\Modules\Pasaje\Services\ChoferContextService;
 use App\Shared\Models\Encomienda;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class EncomiendaReporteService
 {
+    public function __construct(
+        private readonly ChoferContextService $choferContext,
+    ) {
+    }
+
     /*
     |--------------------------------------------------------------------------
     | QUERY BASE
@@ -18,13 +24,25 @@ class EncomiendaReporteService
 
     private function queryBase(): Builder
     {
-        return Encomienda::query()
+        $query = Encomienda::query()
             ->with([
                 'ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
             ]);
+
+        $idChofer = $this->choferContext->idChoferActual();
+
+        if ($idChofer !== null) {
+            $query->whereHas(
+                'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion',
+                fn (Builder $asignacion) =>
+                    $asignacion->where('id_chofer', $idChofer)
+            );
+        }
+
+        return $query;
     }
 
     /*
