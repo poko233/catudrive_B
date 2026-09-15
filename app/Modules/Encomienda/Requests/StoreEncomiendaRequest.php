@@ -16,10 +16,10 @@ class StoreEncomiendaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_ruta' => [
+            'id_viaje' => [
                 'required',
                 'integer',
-                'exists:ruta,id',
+                'exists:viaje,id',
             ],
 
             'remitente' => [
@@ -57,14 +57,14 @@ class StoreEncomiendaRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'id_ruta.required' =>
-                'Debe seleccionar una ruta.',
+            'id_viaje.required' =>
+                'Debe seleccionar un viaje.',
 
-            'id_ruta.integer' =>
-                'La ruta seleccionada no es válida.',
+            'id_viaje.integer' =>
+                'El viaje seleccionado no es válido.',
 
-            'id_ruta.exists' =>
-                'La ruta seleccionada no existe.',
+            'id_viaje.exists' =>
+                'El viaje seleccionado no existe.',
 
             'remitente.required' =>
                 'El remitente es obligatorio.',

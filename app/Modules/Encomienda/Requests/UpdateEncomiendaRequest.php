@@ -16,12 +16,6 @@ class UpdateEncomiendaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_ruta' => [
-                'required',
-                'integer',
-                'exists:ruta,id',
-            ],
-
             'remitente' => [
                 'required',
                 'string',
@@ -57,15 +51,6 @@ class UpdateEncomiendaRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'id_ruta.required' =>
-                'Debe seleccionar una ruta.',
-
-            'id_ruta.integer' =>
-                'La ruta seleccionada no es válida.',
-
-            'id_ruta.exists' =>
-                'La ruta seleccionada no existe.',
-
             'remitente.required' =>
                 'El remitente es obligatorio.',
 

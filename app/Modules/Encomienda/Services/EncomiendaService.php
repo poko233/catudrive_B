@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Encomienda\Services;
 
+use App\Modules\Pasaje\Services\ChoferContextService;
 use App\Shared\Models\Encomienda;
 use App\Shared\Models\Viaje;
 use App\Shared\Models\ViajeEncomienda;
@@ -14,11 +15,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class EncomiendaService
 {
     public function __construct(
-        private readonly AuditService $audit
+        private readonly AuditService $audit,
+        private readonly ChoferContextService $choferContext,
     ) {
     }
 
@@ -30,13 +33,70 @@ class EncomiendaService
 
     private function queryBase(): Builder
     {
-        return Encomienda::query()
+        $query = Encomienda::query()
             ->with([
                 'ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
             ]);
+
+        return $this->aplicarScopeChofer($query);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALCANCE DEL CHOFER
+    |--------------------------------------------------------------------------
+    |
+    | Un usuario con rol Chofer solo puede trabajar con encomiendas de viajes
+    | donde él es el chofer asignado. Los super roles mantienen acceso global.
+    |
+    */
+
+    private function aplicarScopeChofer(Builder $query): Builder
+    {
+        $idChofer = $this->choferContext->idChoferActual();
+
+        if ($idChofer === null) {
+            return $query;
+        }
+
+        return $query->whereHas(
+            'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion',
+            fn (Builder $asignacion) =>
+                $asignacion->where('id_chofer', $idChofer)
+        );
+    }
+
+    private function queryViajesPermitidos(): Builder
+    {
+        $query = Viaje::query()
+            ->with([
+                'vehiculoChoferRuta.ruta',
+                'vehiculoChoferRuta.asignacion.chofer.usuario',
+                'vehiculoChoferRuta.asignacion.vehiculo',
+            ]);
+
+        $idChofer = $this->choferContext->idChoferActual();
+
+        if ($idChofer !== null) {
+            $query->whereHas(
+                'vehiculoChoferRuta.asignacion',
+                fn (Builder $asignacion) =>
+                    $asignacion->where('id_chofer', $idChofer)
+            );
+        }
+
+        return $query;
+    }
+
+    private function obtenerViajePermitido(int $idViaje): Viaje
+    {
+        /** @var Viaje $viaje */
+        $viaje = $this->queryViajesPermitidos()->findOrFail($idViaje);
+
+        return $viaje;
     }
 
     /*
@@ -151,7 +211,9 @@ class EncomiendaService
     public function resumen(): array
     {
         $conteos =
-            Encomienda::query()
+            $this->aplicarScopeChofer(
+                Encomienda::query()
+            )
                 ->selectRaw(
                     'estado, COUNT(*) AS cantidad'
                 )
@@ -164,7 +226,9 @@ class EncomiendaService
                 );
 
         $ingresos =
-            Encomienda::query()
+            $this->aplicarScopeChofer(
+                Encomienda::query()
+            )
                 ->where(
                     'estado',
                     '!=',
@@ -316,12 +380,7 @@ class EncomiendaService
         */
 
         $viajes =
-            Viaje::query()
-                ->with([
-                    'vehiculoChoferRuta.ruta',
-                    'vehiculoChoferRuta.asignacion.chofer.usuario',
-                    'vehiculoChoferRuta.asignacion.vehiculo',
-                ])
+            $this->queryViajesPermitidos()
                 ->orderByDesc(
                     'id'
                 )
@@ -478,6 +537,8 @@ class EncomiendaService
                 ->values();
 
         return [
+            // Se conserva por compatibilidad con clientes antiguos.
+            // El flujo nuevo obtiene la ruta directamente del viaje.
             'rutas' =>
                 $rutas,
             'viajes' =>
@@ -494,108 +555,84 @@ class EncomiendaService
     public function crear(
         array $data
     ): Encomienda {
-        $id =
-            0;
+        $id = 0;
 
         DB::transaction(
-            function () use (
-                $data,
-                &$id
-            ): void {
+            function () use ($data, &$id): void {
                 /*
                 |--------------------------------------------------------------------------
-                | CREAR ENCOMIENDA
+                | VIAJE SELECCIONADO
                 |--------------------------------------------------------------------------
                 |
-                | La guía se genera posteriormente usando el ID.
+                | La ruta ya pertenece al viaje. Nunca se confía en una id_ruta
+                | enviada por el cliente.
                 |
                 */
 
-                $encomienda =
-                    Encomienda::query()
-                        ->create([
-                            'guia' =>
-                                null,
+                $viaje = $this->obtenerViajePermitido(
+                    (int) $data['id_viaje']
+                );
 
-                            'id_ruta' =>
-                                (int)
-                                $data[
-                                    'id_ruta'
-                                ],
+                $vehiculoChoferRuta = $viaje->vehiculoChoferRuta;
 
-                            'remitente' =>
-                                $data[
-                                    'remitente'
-                                ],
+                if (!$vehiculoChoferRuta) {
+                    throw ValidationException::withMessages([
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una asignación de vehículo, chofer y ruta.',
+                    ]);
+                }
 
-                            'destinatario' =>
-                                $data[
-                                    'destinatario'
-                                ],
+                if (!$vehiculoChoferRuta->ruta) {
+                    throw ValidationException::withMessages([
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una ruta asignada.',
+                    ]);
+                }
 
-                            'descripcion' =>
-                                $data[
-                                    'descripcion'
-                                ] ?? null,
-
-                            'cantidad' =>
-                                (int)
-                                $data[
-                                    'cantidad'
-                                ],
-
-                            'precio' =>
-                                $data[
-                                    'precio'
-                                ],
-
-                            'estado' =>
-                                'Registrada',
-                        ]);
-
-                $id =
-                    (int)
-                    $encomienda->id;
+                if (!$vehiculoChoferRuta->asignacion) {
+                    throw ValidationException::withMessages([
+                        'id_viaje' =>
+                            'El viaje seleccionado no tiene una asignación de vehículo y chofer.',
+                    ]);
+                }
 
                 /*
                 |--------------------------------------------------------------------------
-                | GENERAR GUÍA CORRELATIVA
+                | CREAR ENCOMIENDA YA ASIGNADA
                 |--------------------------------------------------------------------------
                 */
 
-                $encomienda->guia =
-                    $this->generarGuia(
-                        $id
-                    );
+                $encomienda = Encomienda::query()->create([
+                    'guia' => null,
+                    'qr_token' => Str::random(64),
+                    'id_ruta' => (int) $vehiculoChoferRuta->id_ruta,
+                    'remitente' => $data['remitente'],
+                    'destinatario' => $data['destinatario'],
+                    'descripcion' => $data['descripcion'] ?? null,
+                    'cantidad' => (int) $data['cantidad'],
+                    'precio' => $data['precio'],
+                    'estado' => 'En tránsito',
+                ]);
 
+                $id = (int) $encomienda->id;
+
+                $encomienda->guia = $this->generarGuia($id);
                 $encomienda->save();
+
+                ViajeEncomienda::query()->create([
+                    'id_viaje' => (int) $viaje->id,
+                    'id_encomienda' => $id,
+                ]);
             }
         );
 
-        $fresh =
-            $this->obtener(
-                $id
-            );
+        $fresh = $this->obtener($id);
 
-        /*
-        |--------------------------------------------------------------------------
-        | AUDITORÍA
-        |--------------------------------------------------------------------------
-        */
-
-        $this->audit
-            ->created(
-                resource:
-                    'Encomienda',
-
-                resourceId:
-                    $id,
-
-                after:
-                    $this->snapshot(
-                        $fresh
-                    ),
-            );
+        $this->audit->created(
+            resource: 'Encomienda',
+            resourceId: $id,
+            after: $this->snapshot($fresh),
+        );
 
         return $fresh;
     }
@@ -621,7 +658,9 @@ class EncomiendaService
             ): void {
                 /** @var Encomienda $encomienda */
                 $encomienda =
-                    Encomienda::query()
+                    $this->aplicarScopeChofer(
+                        Encomienda::query()
+                    )
                         ->lockForUpdate()
                         ->findOrFail(
                             $id
@@ -629,17 +668,17 @@ class EncomiendaService
 
                 /*
                 |--------------------------------------------------------------------------
-                | SOLO REGISTRADA
+                | ESTADOS EDITABLES
                 |--------------------------------------------------------------------------
                 */
 
                 if (
-                    !$encomienda
-                        ->estaRegistrada()
+                    !$encomienda->estaRegistrada() &&
+                    !$encomienda->estaEnTransito()
                 ) {
                     throw ValidationException::withMessages([
                         'encomienda' =>
-                            'Solo se puede editar una encomienda registrada.',
+                            'Solo se puede editar una encomienda registrada o en tránsito.',
                     ]);
                 }
 
@@ -655,13 +694,6 @@ class EncomiendaService
                 */
                 
                 $encomienda->fill([
-
-                    'id_ruta' =>
-                        (int)
-                        $data[
-                            'id_ruta'
-                        ],
-
                     'remitente' =>
                         $data[
                             'remitente'
@@ -745,7 +777,9 @@ class EncomiendaService
             ): void {
                 /** @var Encomienda $encomienda */
                 $encomienda =
-                    Encomienda::query()
+                    $this->aplicarScopeChofer(
+                        Encomienda::query()
+                    )
                         ->lockForUpdate()
                         ->findOrFail(
                             $id
@@ -798,18 +832,9 @@ class EncomiendaService
 
                 /** @var Viaje $viaje */
                 $viaje =
-                    Viaje::query()
-                        ->with([
-                            'vehiculoChoferRuta.ruta',
-                            'vehiculoChoferRuta.asignacion.chofer.usuario',
-                            'vehiculoChoferRuta.asignacion.vehiculo',
-                        ])
-                        ->findOrFail(
-                            (int)
-                            $data[
-                                'id_viaje'
-                            ]
-                        );
+                    $this->obtenerViajePermitido(
+                        (int) $data['id_viaje']
+                    );
 
                 /*
                 |--------------------------------------------------------------------------
@@ -962,7 +987,9 @@ class EncomiendaService
             ): void {
                 /** @var Encomienda $encomienda */
                 $encomienda =
-                    Encomienda::query()
+                    $this->aplicarScopeChofer(
+                        Encomienda::query()
+                    )
                         ->lockForUpdate()
                         ->findOrFail(
                             $id
@@ -1065,6 +1092,23 @@ class EncomiendaService
     public function anular(
         int $id
     ): Encomienda {
+        /*
+        |--------------------------------------------------------------------------
+        | RESTRICCIÓN DE ROL
+        |--------------------------------------------------------------------------
+        |
+        | El Chofer puede crear, ver y editar encomiendas de sus propios viajes,
+        | pero NO puede anularlas. Esta validación vive en backend para que no
+        | pueda saltarse ocultando/forzando acciones desde el frontend.
+        |
+        */
+
+        if ($this->choferContext->esChofer()) {
+            throw new AccessDeniedHttpException(
+                'El rol Chofer no tiene permiso para anular encomiendas.'
+            );
+        }
+
         $before =
             [];
 
@@ -1075,7 +1119,9 @@ class EncomiendaService
             ): void {
                 /** @var Encomienda $encomienda */
                 $encomienda =
-                    Encomienda::query()
+                    $this->aplicarScopeChofer(
+                        Encomienda::query()
+                    )
                         ->lockForUpdate()
                         ->findOrFail(
                             $id
@@ -1083,42 +1129,25 @@ class EncomiendaService
 
                 /*
                 |--------------------------------------------------------------------------
-                | SOLO REGISTRADA
+                | ESTADOS ANULABLES
                 |--------------------------------------------------------------------------
+                |
+                | En el flujo actual la encomienda nace asignada a un viaje y en
+                | tránsito, por lo que debe poder anularse mientras no haya sido
+                | entregada ni anulada previamente.
+                |
                 */
 
                 if (
-                    !$encomienda
-                        ->estaRegistrada()
+                    !$encomienda->estaRegistrada() &&
+                    !$encomienda->estaEnTransito()
                 ) {
                     throw ValidationException::withMessages([
                         'encomienda' =>
-                            'Solo se puede anular una encomienda registrada.',
+                            'Solo se puede anular una encomienda registrada o en tránsito.',
                     ]);
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | NO DEBE ESTAR ASIGNADA
-                |--------------------------------------------------------------------------
-                */
-
-                $asignada =
-                    ViajeEncomienda::query()
-                        ->where(
-                            'id_encomienda',
-                            $encomienda->id
-                        )
-                        ->exists();
-
-                if (
-                    $asignada
-                ) {
-                    throw ValidationException::withMessages([
-                        'encomienda' =>
-                            'No se puede anular una encomienda que ya fue asignada a un viaje.',
-                    ]);
-                }
 
                 $before =
                     $this->snapshot(
