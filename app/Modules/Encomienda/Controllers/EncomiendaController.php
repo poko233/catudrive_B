@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Encomienda\Requests\AsignarEncomiendaRequest;
 use App\Modules\Encomienda\Requests\EntregarEncomiendaRequest;
 use App\Modules\Encomienda\Requests\EscanearEncomiendaQrRequest;
+use App\Modules\Encomienda\Requests\ListarEncomiendasRequest;
 use App\Modules\Encomienda\Requests\StoreEncomiendaRequest;
 use App\Modules\Encomienda\Requests\UpdateEncomiendaRequest;
 use App\Modules\Encomienda\Resource\EncomiendaResource;
@@ -32,15 +33,19 @@ class EncomiendaController extends Controller
     */
 
     public function index(
-        Request $request
+        ListarEncomiendasRequest $request
     ): JsonResponse {
         $items =
             $this->service
-                ->listar();
+                ->listar(
+                    $request->validated(),
+                    (int) $request->input('per_page', 15)
+                );
 
         return response()->json([
             'encomiendas' =>
                 $items
+                    ->getCollection()
                     ->map(
                         fn ($item) =>
                             (
@@ -52,6 +57,17 @@ class EncomiendaController extends Controller
                             )
                     )
                     ->values(),
+
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+            ],
+
+            'resumen' =>
+                $this->service
+                    ->resumen(),
         ]);
     }
 

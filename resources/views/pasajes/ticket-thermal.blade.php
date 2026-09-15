@@ -129,7 +129,19 @@
             {{ $venta->viaje->vehiculoChoferRuta->ruta->destino ?? '-' }}
         </div>
         <div class="row"><span class="bold">Salida:</span>
-            {{ $venta->viaje->vehiculoChoferRuta->hora_inicio?->format('d/m/Y H:i') ?? '-' }}
+            @php
+                $ruta = $venta->viaje->vehiculoChoferRuta->ruta ?? null;
+                $fechaSalida = $ruta?->fecha_inicio ? \Carbon\Carbon::parse($ruta->fecha_inicio)->format('d/m/Y') : null;
+                $horaSalida = $ruta?->hora_inicio ? substr($ruta->hora_inicio, 0, 5) : null;
+            @endphp
+            {{ trim(($fechaSalida ?? '-') . ' ' . ($horaSalida ?? '')) }}
+        </div>
+        <div class="row"><span class="bold">Llegada:</span>
+            @php
+                $fechaLlegada = $ruta?->fecha_fin ? \Carbon\Carbon::parse($ruta->fecha_fin)->format('d/m/Y') : null;
+                $horaLlegada = $ruta?->hora_fin ? substr($ruta->hora_fin, 0, 5) : null;
+            @endphp
+            {{ trim(($fechaLlegada ?? '-') . ' ' . ($horaLlegada ?? '')) }}
         </div>
         <div class="row"><span class="bold">Vehículo:</span>
             {{ $venta->viaje->vehiculoChoferRuta->asignacion->vehiculo->placa ?? '-' }}

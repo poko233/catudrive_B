@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Pasaje\Controllers\PasajeReporteController;
 use App\Modules\Pasaje\Controllers\RutaController;
 use App\Modules\Pasaje\Controllers\VehiculoChoferRutaController;
 use App\Modules\Pasaje\Controllers\VentaController;
@@ -28,7 +29,43 @@ Route::prefix('pasajes')
         // Ventas
         Route::post('/ventas/iniciar', [VentaController::class, 'iniciarVenta'])
             ->middleware('throttle:write', 'permiso:Ventas,Pasajes,Crear');
+        Route::prefix('reportes')
+            ->middleware(['auth:sanctum', CheckUserActive::class])
+            ->controller(PasajeReporteController::class)
+            ->group(function (): void {
+                Route::get('/{tipo}/html', 'html')
+                    ->whereIn('tipo', [
+                        'vendidos_por_fecha',
+                        'por_ruta',
+                        'por_vehiculo',
+                        'por_chofer',
+                        'ingresos',
+                    ])
+                    ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver')
+                    ->name('pasajes.reportes.html');
 
+                Route::get('/{tipo}/pdf', 'pdf')
+                    ->whereIn('tipo', [
+                        'vendidos_por_fecha',
+                        'por_ruta',
+                        'por_vehiculo',
+                        'por_chofer',
+                        'ingresos',
+                    ])
+                    ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver')
+                    ->name('pasajes.reportes.pdf');
+
+                // Planilla de pasajeros por viaje
+                Route::get('/planilla/{idViaje}/html', 'planillaHtml')
+                    ->whereNumber('idViaje')
+                    ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver')
+                    ->name('pasajes.reportes.planilla.html');
+
+                Route::get('/planilla/{idViaje}/pdf', 'planillaPdf')
+                    ->whereNumber('idViaje')
+                    ->middleware('throttle:api', 'permiso:Ventas,Pasajes,Ver')
+                    ->name('pasajes.reportes.planilla.pdf');
+            });
         Route::put('/ventas/{ventaId}/confirmar', [VentaController::class, 'confirmarVenta'])
             ->middleware('throttle:write', 'permiso:Ventas,Pasajes,Editar');
 

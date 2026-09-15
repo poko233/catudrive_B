@@ -7,9 +7,11 @@ namespace App\Modules\Auth\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Auth\Requests\ChangePasswordRequest;
 use App\Modules\Auth\Requests\LoginRequest;
+use App\Modules\Auth\Requests\RegisterUserRequest;
 use App\Modules\Auth\Resources\UserProfileResource;
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Auth\Services\PermissionService;
+use App\Modules\Auth\Services\UserRegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,6 +20,7 @@ class AuthController extends Controller
     public function __construct(
         private readonly AuthService $authService,
         private readonly PermissionService $permissionService,
+        private readonly UserRegistrationService $registrationService,
     ) {
     }
 
@@ -103,5 +106,46 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Contraseña actualizada correctamente. Las demás sesiones fueron cerradas.',
         ]);
+    }
+
+    /**
+     * POST /api/register
+     *
+     * Crea un usuario y le asigna roles.
+     *
+     * IMPORTANTE:
+     *  - Endpoint restringido (auth:sanctum + usuario.activo + permiso:...).
+     *  - La autorización se resuelve en middleware, no aquí.
+     */
+    public function register(RegisterUserRequest $request): JsonResponse
+    {
+        $user = $this->registrationService->register(
+            $request->validated()
+        );
+
+        $user->load('roles');
+        $user->refresh();   // ← AÑADIR: recarga para traer codigo_qr generado por el observer
+
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'usuario' => $user->usuario,
+                'ci' => $user->ci,
+                'nombres' => $user->nombres,
+                'primer_apellido' => $user->primer_apellido,
+                'segundo_apellido' => $user->segundo_apellido,
+                'genero' => $user->genero,
+                'fecha_nac' => $user->fecha_nac?->format('Y-m-d'),
+                'email' => $user->email,
+                'telefono' => $user->telefono,
+                'celular' => $user->celular,
+                'direccion' => $user->direccion,
+                'expedido' => $user->expedido,
+                'estado' => $user->estado,
+                'codigo_qr' => $user->codigo_qr,
+                'roles' => $user->roles->pluck('rol')->all(),
+            ],
+            'message' => 'Usuario registrado exitosamente',
+        ], 201);
     }
 }

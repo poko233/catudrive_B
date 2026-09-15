@@ -3,12 +3,83 @@
 <head>
 <meta charset="utf-8">
 <title>{{ $tipo === 'comprobante' ? 'Detalle de encomienda' : 'Etiqueta de encomienda' }}</title>
-<style>
-@page{size:80mm {{ $tipo === 'comprobante' ? '115mm' : '92mm' }};margin:0}*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;background:#fff!important;width:80mm!important;min-width:80mm!important;overflow:visible!important}body{font-family:Arial,sans-serif;color:#000;font-size:11px;line-height:1.25;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ticket{width:80mm;margin:0 auto;padding:4mm 5mm 3mm;break-inside:avoid;page-break-inside:avoid}.center{text-align:center}.title{font-size:15px;font-weight:700}.guide{font-size:17px;font-weight:700;margin:4px 0}.line{border-top:1px dashed #000;margin:5px 0}.row{margin:2px 0}.label{font-weight:700}.qr{width:40mm;height:40mm;display:block;margin:6px auto 4px}.small{font-size:8px;word-break:break-all}.footer{margin-top:5px;font-size:8px}@media print{html,body{width:80mm!important;height:auto!important}.ticket{width:80mm!important;margin:0!important;padding:3mm 5mm!important}img{max-width:100%!important;page-break-inside:avoid!important}body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+<style id="thermal-page-style">
+@page{size:80mm {{ $tipo === 'comprobante' ? '105mm' : '70mm' }};margin:0}
+*{box-sizing:border-box}
+html,body{margin:0!important;padding:0!important;width:80mm!important;min-width:80mm!important;background:#fff!important}
+html{height:auto!important;min-height:0!important}
+body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;color:#000;font-size:10px;line-height:1.12;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ticket{display:block;width:80mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:2mm 4mm!important;background:#fff;overflow:visible!important}
+.center{text-align:center}.title{font-size:14px;line-height:1.05;font-weight:700}.guide{font-size:16px;line-height:1.05;font-weight:700;margin:1.5px 0}.line{border-top:1px dashed #000;margin:2.5px 0}.row{margin:1px 0;line-height:1.12}.label{font-weight:700}.qr{display:block;width:30mm;height:30mm;margin:2.5px auto 1.5px}.small{font-size:7px;line-height:1.05;word-break:break-word}.footer{margin-top:1.5px;font-size:7px;line-height:1.05}
+@media print{
+    html,body{margin:0!important;padding:0!important;width:80mm!important;min-width:80mm!important;min-height:0!important;background:#fff!important;overflow:visible!important}
+    body{position:static!important;display:block!important}
+    .ticket{position:static!important;display:block!important;width:80mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:2mm 4mm!important;overflow:visible!important;break-inside:avoid!important;page-break-inside:avoid!important}
+    img{max-width:100%!important;break-inside:avoid!important;page-break-inside:avoid!important}
+}
 </style>
+<script>
+(function(){
+    var MM_PER_PX = 25.4 / 96;
+    var MIN_ETIQUETA_MM = 55;
+    var MIN_COMPROBANTE_MM = 75;
+    var MAX_MM = 120;
+    var tipo = @json($tipo);
+
+    function aplicarTamanoExacto(){
+        var ticket = document.getElementById('thermal-ticket');
+        var style = document.getElementById('thermal-page-dynamic');
+        if(!ticket){ return null; }
+
+        /*
+         * Medimos SOLO el contenido real. No usamos el alto del viewport,
+         * iframe ni papel configurado por el navegador.
+         */
+        var altoPx = Math.ceil(ticket.getBoundingClientRect().height || ticket.scrollHeight || 0);
+        var minimo = tipo === 'comprobante' ? MIN_COMPROBANTE_MM : MIN_ETIQUETA_MM;
+        var altoMm = Math.ceil((altoPx * MM_PER_PX) + 1.5);
+        altoMm = Math.max(minimo, Math.min(MAX_MM, altoMm));
+
+        if(!style){
+            style = document.createElement('style');
+            style.id = 'thermal-page-dynamic';
+            document.head.appendChild(style);
+        }
+
+        style.textContent =
+            '@page{size:80mm ' + altoMm + 'mm!important;margin:0!important;}' +
+            '@media print{' +
+                'html,body{width:80mm!important;height:' + altoMm + 'mm!important;min-height:0!important;max-height:' + altoMm + 'mm!important;margin:0!important;padding:0!important;overflow:hidden!important;}' +
+                '#thermal-ticket{position:absolute!important;top:0!important;left:0!important;width:80mm!important;height:auto!important;min-height:0!important;max-height:' + altoMm + 'mm!important;margin:0!important;overflow:hidden!important;}' +
+            '}';
+
+        document.documentElement.style.height = altoMm + 'mm';
+        document.body.style.height = altoMm + 'mm';
+        document.body.style.minHeight = '0';
+
+        return altoMm;
+    }
+
+    window.prepareThermalPrint = aplicarTamanoExacto;
+
+    if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', function(){
+            requestAnimationFrame(function(){
+                requestAnimationFrame(aplicarTamanoExacto);
+            });
+        });
+    }else{
+        requestAnimationFrame(function(){
+            requestAnimationFrame(aplicarTamanoExacto);
+        });
+    }
+
+    window.addEventListener('beforeprint', aplicarTamanoExacto);
+})();
+</script>
 </head>
 <body>
-<div class="ticket">
+<div class="ticket" id="thermal-ticket">
 <div class="center title">CATUDRIVE</div>
 <div class="center">{{ $tipo === 'comprobante' ? 'DETALLE DE ENCOMIENDA' : 'ENCOMIENDA' }}</div>
 <div class="center guide">{{ $encomienda->guia }}</div>

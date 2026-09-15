@@ -9,10 +9,12 @@ use App\Modules\Pasaje\Requests\ConfirmarVentaRequest;
 use App\Modules\Pasaje\Requests\IniciarVentaRequest;
 use App\Modules\Pasaje\Resources\VentaResource;
 use App\Modules\Pasaje\Services\VentaService;
+use App\Shared\Security\SecurityResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class VentaController
 {
@@ -24,13 +26,13 @@ class VentaController
     public function obtenerAsientos(int $idViaje): JsonResponse
     {
         try {
-            $asientos = $this->ventaService->obtenerAsientos($idViaje);
-
             return response()->json([
                 'success' => true,
-                'data' => $asientos,
+                'data' => $this->ventaService->obtenerAsientos($idViaje),
             ]);
-        } catch (ModelNotFoundException $e) {
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
             return response()->json([
                 'success' => false,
                 'message' => 'Viaje no encontrado.',
@@ -42,50 +44,34 @@ class VentaController
     public function iniciarVenta(IniciarVentaRequest $request): JsonResponse|VentaResource
     {
         try {
-            $venta = $this->ventaService->iniciarVenta(
+            return new VentaResource($this->ventaService->iniciarVenta(
                 (int) $request->validated()['id_viaje'],
                 $request->validated()['asientos'],
                 (int) $request->user()->id
-            );
-
-            return new VentaResource($venta);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Viaje no encontrado.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            ));
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Viaje no encontrado.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
     public function confirmarVenta(int $ventaId, ConfirmarVentaRequest $request): JsonResponse|VentaResource
     {
         try {
-            $venta = $this->ventaService->confirmarVenta(
+            return new VentaResource($this->ventaService->confirmarVenta(
                 $ventaId,
                 $request->validated()['forma_pago'],
                 $request->validated()['pasajeros'] ?? []
-            );
-
-            return new VentaResource($venta);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            ));
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
@@ -93,23 +79,13 @@ class VentaController
     {
         try {
             $this->ventaService->cancelarVenta($ventaId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Venta cancelada correctamente.',
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            return response()->json(['success' => true, 'message' => 'Venta cancelada correctamente.']);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
@@ -117,23 +93,13 @@ class VentaController
     {
         try {
             $this->ventaService->anularVenta($ventaId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Venta anulada correctamente.',
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            return response()->json(['success' => true, 'message' => 'Venta anulada correctamente.']);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
@@ -141,23 +107,13 @@ class VentaController
     {
         try {
             $this->ventaService->eliminarDetalle($detalleId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Detalle eliminado, asiento liberado.',
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Detalle no encontrado.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            return response()->json(['success' => true, 'message' => 'Detalle eliminado, asiento liberado.']);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Detalle no encontrado.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
@@ -179,54 +135,37 @@ class VentaController
                     )
                 ),
             ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Detalle no encontrado.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Detalle no encontrado.', 'code' => 'NOT_FOUND'], 404);
         } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'BUSINESS_ERROR'], 409);
         }
     }
 
     public function show(int $ventaId): JsonResponse|VentaResource
     {
         try {
-            $venta = $this->ventaService->obtenerVenta($ventaId);
-            return new VentaResource($venta);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
-        } catch (RuntimeException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => 'BUSINESS_ERROR',
-            ], 409);
+            return new VentaResource($this->ventaService->obtenerVenta($ventaId));
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         }
     }
 
     public function generarPdf(int $ventaId): Response
     {
         try {
-            $pdf = $this->ventaService->generarPdfVenta($ventaId);
-            return $pdf->download("boleto-{$ventaId}.pdf");
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+            return $this->ventaService->generarPdfVenta($ventaId)->download("boleto-{$ventaId}.pdf");
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         }
     }
+
     public function ticketHtml(int $ventaId): Response
     {
         try {
@@ -237,12 +176,10 @@ class VentaController
                 'venta' => $venta,
                 'qrData' => $qrData,
             ])->header('Content-Type', 'text/html');
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Venta no encontrada.',
-                'code' => 'NOT_FOUND',
-            ], 404);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        } catch (ModelNotFoundException) {
+            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
         }
     }
 }

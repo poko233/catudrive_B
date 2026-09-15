@@ -106,7 +106,7 @@ class QrService
         }
 
         $targetSize = 500;
-        $marginModules = 1;
+        $marginModules = 0;
 
         $totalModules =
             $width +

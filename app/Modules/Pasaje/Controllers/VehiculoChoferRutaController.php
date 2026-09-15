@@ -9,8 +9,10 @@ use App\Modules\Pasaje\Requests\UpdateVehiculoChoferRutaRequest;
 use App\Modules\Pasaje\Resources\VehiculoChoferRutaResource;
 use App\Modules\Pasaje\Services\TransporteService;
 use App\Shared\Models\VehiculoChoferRuta;
+use App\Shared\Security\SecurityResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class VehiculoChoferRutaController
 {
@@ -21,19 +23,23 @@ class VehiculoChoferRutaController
 
     public function index(): AnonymousResourceCollection
     {
-        $vcr = $this->transporteService->listarVehiculoChoferRuta(
-            request()->only(['id_asignacion', 'id_ruta', 'hora_inicio']),
-            (int) request()->input('per_page', 15)
+        return VehiculoChoferRutaResource::collection(
+            $this->transporteService->listarVehiculoChoferRuta(
+                request()->only(['id_asignacion', 'id_ruta', 'hora_inicio']),
+                (int) request()->input('per_page', 15)
+            )
         );
-
-        return VehiculoChoferRutaResource::collection($vcr);
     }
 
-    public function store(StoreVehiculoChoferRutaRequest $request): VehiculoChoferRutaResource
+    public function store(StoreVehiculoChoferRutaRequest $request): JsonResponse|VehiculoChoferRutaResource
     {
-        $vcr = $this->transporteService->crearVehiculoChoferRuta($request->validated());
-
-        return new VehiculoChoferRutaResource($vcr);
+        try {
+            return new VehiculoChoferRutaResource(
+                $this->transporteService->crearVehiculoChoferRuta($request->validated())
+            );
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        }
     }
 
     public function show(VehiculoChoferRuta $vcr): VehiculoChoferRutaResource
@@ -47,20 +53,24 @@ class VehiculoChoferRutaController
         return new VehiculoChoferRutaResource($vcr);
     }
 
-    public function update(UpdateVehiculoChoferRutaRequest $request, VehiculoChoferRuta $vcr): VehiculoChoferRutaResource
+    public function update(UpdateVehiculoChoferRutaRequest $request, VehiculoChoferRuta $vcr): JsonResponse|VehiculoChoferRutaResource
     {
-        $vcr = $this->transporteService->actualizarVehiculoChoferRuta($vcr, $request->validated());
-
-        return new VehiculoChoferRutaResource($vcr);
+        try {
+            return new VehiculoChoferRutaResource(
+                $this->transporteService->actualizarVehiculoChoferRuta($vcr, $request->validated())
+            );
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        }
     }
 
     public function destroy(VehiculoChoferRuta $vcr): JsonResponse
     {
-        $this->transporteService->eliminarVehiculoChoferRuta($vcr);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Relación vehículo-chofer-ruta eliminada correctamente.',
-        ]);
+        try {
+            $this->transporteService->eliminarVehiculoChoferRuta($vcr);
+            return response()->json(['success' => true, 'message' => 'Relación vehículo-chofer-ruta eliminada correctamente.']);
+        } catch (AccessDeniedHttpException $e) {
+            return SecurityResponse::forbidden($e->getMessage());
+        }
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Vehiculo\Controllers\CategoriaVehiculoController;
 use App\Modules\Vehiculo\Controllers\VehiculoController;
+use App\Modules\Vehiculo\Controllers\VehiculoReporteController;
 use App\Shared\Middleware\CheckUserActive;
 use Illuminate\Support\Facades\Route;
 
@@ -45,4 +46,19 @@ Route::prefix('categorias-vehiculo')
 
         Route::delete('/{categoria_vehiculo}', [CategoriaVehiculoController::class, 'destroy'])
             ->middleware('throttle:delete', 'permission:Vehiculo,CategoriaVehiculo,Eliminar');
+    });
+
+Route::prefix('vehiculos/reportes')
+    ->middleware(['auth:sanctum', CheckUserActive::class])
+    ->controller(VehiculoReporteController::class)
+    ->group(function (): void {
+        Route::get('/{tipo}/html', 'html')
+            ->whereIn('tipo', ['lista', 'disponibles', 'asignados', 'por_propietario'])
+            ->middleware('throttle:api', 'permiso:Vehiculos,Reportes,Ver')
+            ->name('vehiculos.reportes.html');
+
+        Route::get('/{tipo}/pdf', 'pdf')
+            ->whereIn('tipo', ['lista', 'disponibles', 'asignados', 'por_propietario'])
+            ->middleware('throttle:api', 'permiso:Vehiculos,Reportes,Ver')
+            ->name('vehiculos.reportes.pdf');
     });
