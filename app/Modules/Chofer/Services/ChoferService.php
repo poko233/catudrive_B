@@ -21,6 +21,22 @@ use Throwable;
 
 class ChoferService
 {
+    /*
+    |--------------------------------------------------------------------------
+    | ROL CHOFER
+    |--------------------------------------------------------------------------
+    |
+    | En CatuDrive:
+    |
+    | 1 = Superadmin
+    | 2 = Administrador
+    | 3 = Usuario
+    | 4 = Chofer
+    |
+    */
+
+    private const ROL_CHOFER_ID = 4;
+
     public function __construct(
         private readonly QrService $qrService,
         private readonly ImageOptimizerService $imageOptimizer,
@@ -48,6 +64,20 @@ class ChoferService
             );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR CHOFER
+    |--------------------------------------------------------------------------
+    |
+    | Al crear un chofer:
+    |
+    | usuario     = CI
+    | contraseña = CI
+    | ci          = CI
+    | rol         = 4 (Chofer)
+    |
+    */
+
     public function crear(
         array $data
     ): Chofer {
@@ -57,95 +87,144 @@ class ChoferService
                     $nombres,
                     $primerApellido,
                     $segundoApellido,
-                ] =
-                    $this->partirNombreCompleto(
-                        $data[
-                            'nombre_completo'
-                        ]
-                    );
+                ] = $this->partirNombreCompleto(
+                    $data['nombre_completo']
+                );
 
-                $ci =
-                    (string) 
-                    $data[
-                        'carnet_identidad'
-                    ];
-
-                $usuario =
-                    User::query()
-                        ->create([
-                            /*
-                             * Usuario interno/técnico.
-                             * El chofer no necesita credenciales
-                             * para ser registrado.
-                             */
-                            'usuario' =>
-                                $this->generarUsuarioTecnico(
-                                    $ci
-                                ),
-
-                            'password' =>
-                                Hash::make(
-                                    Str::random(
-                                        32
-                                    )
-                                ),
-
-                            'ci' =>
-                                $ci,
-
-                            'nombres' =>
-                                $nombres,
-
-                            'primer_apellido' =>
-                                $primerApellido,
-
-                            'segundo_apellido' =>
-                                $segundoApellido,
-
-                            'celular' =>
-                                $data[
-                                    'telefono'
-                                ],
-
-                            'estado' =>
-                                $this->estadoBase(
-                                    $data[
-                                        'estado'
-                                    ]
-                                ),
-                        ]);
-
-                $chofer =
-                    Chofer::query()
-                        ->create([
-                            'id' =>
-                                (int) 
-                                $usuario->id,
-
-                            'carnet_sindical' =>
-                                $data[
-                                    'carnet_sindical'
-                                ],
-
-                            'numero_licencia' =>
-                                $data[
-                                    'numero_licencia'
-                                ],
-
-                            'categoria_licencia' =>
-                                $data[
-                                    'categoria_licencia'
-                                ],
-                        ]);
+                $ci = trim(
+                    (string) $data['carnet_identidad']
+                );
 
                 /*
-                 * QR usando EXACTAMENTE el mismo user.id.
-                 */
+                |--------------------------------------------------------------------------
+                | VERIFICAR ROL 4
+                |--------------------------------------------------------------------------
+                |
+                | Además de comprobar el ID, comprobamos que realmente
+                | sea el rol Chofer para evitar asignar otro rol si la
+                | base fue modificada accidentalmente.
+                |
+                */
+
+                $rolChoferExiste = DB::table('rol')
+                    ->where(
+                        'id',
+                        self::ROL_CHOFER_ID
+                    )
+                    ->whereRaw(
+                        'LOWER(rol) = ?',
+                        ['chofer']
+                    )
+                    ->where(
+                        'estado',
+                        'Activo'
+                    )
+                    ->exists();
+
+                if (!$rolChoferExiste) {
+                    throw new RuntimeException(
+                        'El rol 4 de Chofer no existe o está inactivo.'
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | CREAR USER
+                |--------------------------------------------------------------------------
+                */
+
+                $usuario = User::query()
+                    ->create([
+                        /*
+                         * Usuario inicial = CI.
+                         */
+                        'usuario' =>
+                            $ci,
+
+                        /*
+                         * Contraseña inicial = CI.
+                         *
+                         * Nunca se almacena el CI directamente como contraseña.
+                         * Hash::make genera el hash seguro.
+                         */
+                        'password' =>
+                            Hash::make(
+                                $ci
+                            ),
+
+                        'ci' =>
+                            $ci,
+
+                        'nombres' =>
+                            $nombres,
+
+                        'primer_apellido' =>
+                            $primerApellido,
+
+                        'segundo_apellido' =>
+                            $segundoApellido,
+
+                        'celular' =>
+                            $data['telefono'],
+
+                        'estado' =>
+                            $this->estadoBase(
+                                $data['estado']
+                            ),
+                    ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | ASIGNAR ROL 4 = CHOFER
+                |--------------------------------------------------------------------------
+                |
+                | Genera:
+                |
+                | user_rol.id_user = $usuario->id
+                | user_rol.id_rol  = 4
+                |
+                */
+
+                $usuario
+                    ->roles()
+                    ->syncWithoutDetaching([
+                        self::ROL_CHOFER_ID,
+                    ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | CREAR CHOFER
+                |--------------------------------------------------------------------------
+                |
+                | El chofer conserva exactamente el mismo ID del usuario.
+                |
+                */
+
+                $chofer = Chofer::query()
+                    ->create([
+                        'id' =>
+                            (int) $usuario->id,
+
+                        'carnet_sindical' =>
+                            $data['carnet_sindical'],
+
+                        'numero_licencia' =>
+                            $data['numero_licencia'],
+
+                        'categoria_licencia' =>
+                            $data['categoria_licencia'],
+                    ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | GENERAR QR
+                |--------------------------------------------------------------------------
+                */
+
                 $usuario->codigo_qr =
                     $this->qrService
                         ->generateQrImage(
-                            (int) 
-                            $usuario->id
+                            (int) $usuario->id
                         );
 
                 $usuario->save();
@@ -154,72 +233,93 @@ class ChoferService
             }
         );
 
-        $fresh =
-            $this->obtener(
-                (int) 
-                $chofer->id
-            );
+        $fresh = $this->obtener(
+            (int) $chofer->id
+        );
 
         $this->audit->created(
             resource:
-            'Chofer',
+                'Chofer',
 
             resourceId:
-            $fresh->id,
+                $fresh->id,
 
             after:
-            $this->snapshot(
-                $fresh
-            ),
+                $this->snapshot(
+                    $fresh
+                ),
         );
 
         return $fresh;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTUALIZAR CHOFER
+    |--------------------------------------------------------------------------
+    |
+    | Si cambia el CI:
+    |
+    | - usuario pasa a ser el nuevo CI
+    | - contraseña se reinicia al nuevo CI
+    | - se revocan las sesiones existentes
+    |
+    */
 
     public function actualizar(
         int $id,
         array $data
     ): Chofer {
         $before = [];
+        $ciCambio = false;
 
         DB::transaction(
-            function () use ($id, $data, &$before): void {
-                $chofer =
-                    Chofer::query()
-                        ->with('usuario')
-                        ->lockForUpdate()
-                        ->findOrFail(
-                            $id
-                        );
-
-                $usuario =
-                    User::query()
-                        ->lockForUpdate()
-                        ->findOrFail(
-                            $id
-                        );
-
-                $before =
-                    $this->snapshot(
-                        $chofer
+            function () use (
+                $id,
+                $data,
+                &$before,
+                &$ciCambio
+            ): void {
+                $chofer = Chofer::query()
+                    ->with('usuario')
+                    ->lockForUpdate()
+                    ->findOrFail(
+                        $id
                     );
+
+                $usuario = User::query()
+                    ->lockForUpdate()
+                    ->findOrFail(
+                        $id
+                    );
+
+                $before = $this->snapshot(
+                    $chofer
+                );
 
                 [
                     $nombres,
                     $primerApellido,
                     $segundoApellido,
-                ] =
-                    $this->partirNombreCompleto(
-                        $data[
-                            'nombre_completo'
-                        ]
-                    );
+                ] = $this->partirNombreCompleto(
+                    $data['nombre_completo']
+                );
 
-                $usuario->update([
+                $nuevoCi = trim(
+                    (string) $data['carnet_identidad']
+                );
+
+                $ciAnterior = trim(
+                    (string) $usuario->ci
+                );
+
+                $ciCambio =
+                    $ciAnterior !==
+                    $nuevoCi;
+
+                $datosUsuario = [
                     'ci' =>
-                        $data[
-                            'carnet_identidad'
-                        ],
+                        $nuevoCi,
 
                     'nombres' =>
                         $nombres,
@@ -231,45 +331,85 @@ class ChoferService
                         $segundoApellido,
 
                     'celular' =>
-                        $data[
-                            'telefono'
-                        ],
+                        $data['telefono'],
 
                     'estado' =>
                         $this->estadoBase(
-                            $data[
-                                'estado'
-                            ]
+                            $data['estado']
                         ),
-                ]);
+                ];
+
+                /*
+                |--------------------------------------------------------------------------
+                | SI CAMBIA EL CI
+                |--------------------------------------------------------------------------
+                |
+                | Se mantiene la regla:
+                |
+                | CI = usuario = contraseña inicial
+                |
+                */
+
+                if ($ciCambio) {
+                    $datosUsuario['usuario'] =
+                        $nuevoCi;
+
+                    $datosUsuario['password'] =
+                        Hash::make(
+                            $nuevoCi
+                        );
+                }
+
+                $usuario->update(
+                    $datosUsuario
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | GARANTIZAR ROL CHOFER
+                |--------------------------------------------------------------------------
+                */
+
+                $usuario
+                    ->roles()
+                    ->syncWithoutDetaching([
+                        self::ROL_CHOFER_ID,
+                    ]);
 
                 $chofer->update([
                     'carnet_sindical' =>
-                        $data[
-                            'carnet_sindical'
-                        ],
+                        $data['carnet_sindical'],
 
                     'numero_licencia' =>
-                        $data[
-                            'numero_licencia'
-                        ],
+                        $data['numero_licencia'],
 
                     'categoria_licencia' =>
-                        $data[
-                            'categoria_licencia'
-                        ],
+                        $data['categoria_licencia'],
                 ]);
             }
         );
 
-        $fresh =
-            $this->obtener(
-                $id
-            );
+        $fresh = $this->obtener(
+            $id
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | REVOCAR SESIONES
+        |--------------------------------------------------------------------------
+        |
+        | Si:
+        |
+        | - cambió el CI/usuario/contraseña
+        | - el usuario fue desactivado
+        |
+        | obligamos a iniciar sesión nuevamente.
+        |
+        */
 
         if (
-            $fresh->usuario?->estado ===
-            'Inactivo'
+            $ciCambio ||
+            $fresh->usuario?->estado === 'Inactivo'
         ) {
             $this->tokenSecurity
                 ->revokeAllTokensByUserId(
@@ -279,18 +419,18 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-            'Chofer',
+                'Chofer',
 
             resourceId:
-            $id,
+                $id,
 
             before:
-            $before,
+                $before,
 
             after:
-            $this->snapshot(
-                $fresh
-            ),
+                $this->snapshot(
+                    $fresh
+                ),
         );
 
         return $fresh;
@@ -302,19 +442,20 @@ class ChoferService
         $before = [];
 
         DB::transaction(
-            function () use ($id, &$before): void {
-                $chofer =
-                    Chofer::query()
-                        ->with('usuario')
-                        ->lockForUpdate()
-                        ->findOrFail(
-                            $id
-                        );
-
-                $before =
-                    $this->snapshot(
-                        $chofer
+            function () use (
+                $id,
+                &$before
+            ): void {
+                $chofer = Chofer::query()
+                    ->with('usuario')
+                    ->lockForUpdate()
+                    ->findOrFail(
+                        $id
                     );
+
+                $before = $this->snapshot(
+                    $chofer
+                );
 
                 User::query()
                     ->whereKey(
@@ -358,25 +499,24 @@ class ChoferService
                 $id
             );
 
-        $fresh =
-            $this->obtener(
-                $id
-            );
+        $fresh = $this->obtener(
+            $id
+        );
 
         $this->audit->updated(
             resource:
-            'Chofer',
+                'Chofer',
 
             resourceId:
-            $id,
+                $id,
 
             before:
-            $before,
+                $before,
 
             after:
-            $this->snapshot(
-                $fresh
-            ),
+                $this->snapshot(
+                    $fresh
+                ),
         );
 
         return $fresh;
@@ -390,30 +530,24 @@ class ChoferService
             $id
         );
 
-        $usuario =
-            User::query()
-                ->findOrFail(
-                    $id
-                );
+        $usuario = User::query()
+            ->findOrFail(
+                $id
+            );
 
         $anterior =
             $usuario->foto;
 
-        $nombreBase =
-            sprintf(
-                'chofer_%d_%s',
-                $id,
-                Str::lower(
-                    Str::random(
-                        16
-                    )
+        $nombreBase = sprintf(
+            'chofer_%d_%s',
+            $id,
+            Str::lower(
+                Str::random(
+                    16
                 )
-            );
+            )
+        );
 
-        /*
-         * Reutiliza el optimizador general
-         * que ya utiliza CodigoBase/RRHH.
-         */
         $nombreArchivo =
             $this->imageOptimizer
                 ->convertToWebP(
@@ -430,7 +564,10 @@ class ChoferService
 
         try {
             DB::transaction(
-                function () use ($usuario, $rutaNueva): void {
+                function () use (
+                    $usuario,
+                    $rutaNueva
+                ): void {
                     $usuario->foto =
                         $rutaNueva;
 
@@ -456,10 +593,10 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-            'Chofer',
+                'Chofer',
 
             resourceId:
-            $id,
+                $id,
 
             before: [
                 'fotografia' =>
@@ -484,11 +621,10 @@ class ChoferService
             $id
         );
 
-        $usuario =
-            User::query()
-                ->findOrFail(
-                    $id
-                );
+        $usuario = User::query()
+            ->findOrFail(
+                $id
+            );
 
         $qr =
             $this->qrService
@@ -497,7 +633,10 @@ class ChoferService
                 );
 
         User::withoutEvents(
-            function () use ($usuario, $qr): void {
+            function () use (
+                $usuario,
+                $qr
+            ): void {
                 $usuario->codigo_qr =
                     $qr;
 
@@ -507,10 +646,10 @@ class ChoferService
 
         $this->audit->updated(
             resource:
-            'Chofer',
+                'Chofer',
 
             resourceId:
-            $id,
+                $id,
 
             before: [
                 'codigo_qr' =>
@@ -535,10 +674,6 @@ class ChoferService
             $id
         );
 
-        /*
-         * Query Builder no aplica el scope SoftDeletes,
-         * por lo que también vemos asignaciones históricas.
-         */
         $asignaciones =
             DB::table(
                 'asignacion_vehiculo_chofer as avc'
@@ -574,21 +709,18 @@ class ChoferService
                 ->get();
 
         if (
-            $asignaciones
-                ->isEmpty()
+            $asignaciones->isEmpty()
         ) {
             return [];
         }
 
-        $ids =
-            $asignaciones
-                ->pluck('id')
-                ->map(
-                    fn($id) =>
-                    (int) 
-                    $id
-                )
-                ->all();
+        $ids = $asignaciones
+            ->pluck('id')
+            ->map(
+                fn($id) =>
+                    (int) $id
+            )
+            ->all();
 
         $viajes =
             DB::table(
@@ -626,7 +758,11 @@ class ChoferService
 
         return $asignaciones
             ->map(
-                function (object $asignacion) use ($viajes): array {
+                function (
+                    object $asignacion
+                ) use (
+                    $viajes
+                ): array {
                     $items =
                         $viajes->get(
                             $asignacion->id,
@@ -635,12 +771,11 @@ class ChoferService
 
                     return [
                         'id' =>
-                            (int) 
-                            $asignacion->id,
+                            (int) $asignacion->id,
 
                         'estado' =>
                             mb_strtoupper(
-                                (string) 
+                                (string)
                                 $asignacion->estado
                             ),
 
@@ -655,7 +790,7 @@ class ChoferService
 
                         'vehiculo' => [
                             'id' =>
-                                (int) 
+                                (int)
                                 $asignacion->id_vehiculo,
 
                             'placa' =>
@@ -681,11 +816,10 @@ class ChoferService
                             $items
                                 ->map(
                                     fn(
-                                    object $viaje
-                                ): array => [
+                                        object $viaje
+                                    ): array => [
                                         'id' =>
-                                            (int) 
-                                            $viaje->id,
+                                            (int) $viaje->id,
 
                                         'hora_inicio' =>
                                             $viaje->hora_inicio,
@@ -695,8 +829,7 @@ class ChoferService
 
                                         'ruta' => [
                                             'id' =>
-                                                (int) 
-                                                $viaje->id_ruta,
+                                                (int) $viaje->id_ruta,
 
                                             'origen' =>
                                                 $viaje->origen,
@@ -705,8 +838,7 @@ class ChoferService
                                                 $viaje->destino,
 
                                             'tarifa' =>
-                                                (float) 
-                                                $viaje->tarifa,
+                                                (float) $viaje->tarifa,
 
                                             'estado' =>
                                                 $viaje->estado_ruta,
@@ -807,50 +939,27 @@ class ChoferService
             ),
 
             mb_substr(
-                (string) 
-                $primerApellido,
+                (string) $primerApellido,
                 0,
                 50
             ),
 
             mb_substr(
-                (string) 
-                $segundoApellido,
+                (string) $segundoApellido,
                 0,
                 50
             ),
         ];
     }
 
-    private function generarUsuarioTecnico(
-        string $ci
-    ): string {
-        return
-            'chofer_' .
-            substr(
-                hash(
-                    'sha256',
-                    mb_strtolower(
-                        trim(
-                            $ci
-                        )
-                    )
-                ),
-                0,
-                24
-            );
-    }
-
     private function estadoBase(
         string $estado
     ): string {
-        return
-            mb_strtoupper(
-                trim(
-                    $estado
-                )
-            ) ===
-            'INACTIVO'
+        return mb_strtoupper(
+            trim(
+                $estado
+            )
+        ) === 'INACTIVO'
             ? 'Inactivo'
             : 'Activo';
     }
@@ -864,6 +973,9 @@ class ChoferService
         return [
             'id' =>
                 $chofer->id,
+
+            'usuario' =>
+                $usuario?->usuario,
 
             'carnet_sindical' =>
                 $chofer->carnet_sindical,
@@ -929,32 +1041,90 @@ class ChoferService
             );
         }
     }
+
     public function buscar(
         string $termino
     ): Collection {
-        $termino = trim($termino);
+        $termino =
+            trim(
+                $termino
+            );
 
         return Chofer::query()
             ->with('usuario')
-            ->when($termino !== '', function ($query) use ($termino) {
-                $query->where(function ($subQuery) use ($termino) {
-                    $subQuery
-                        ->whereHas('usuario', function ($userQuery) use ($termino) {
-                            $userQuery
-                                ->where('nombres', 'ilike', "%{$termino}%")
-                                ->orWhere('primer_apellido', 'ilike', "%{$termino}%")
-                                ->orWhere('segundo_apellido', 'ilike', "%{$termino}%")
-                                ->orWhere('ci', 'ilike', "%{$termino}%");
-                        })
-                        ->orWhere('carnet_sindical', 'ilike', "%{$termino}%");
-                });
-            })
-            ->whereHas('usuario', function ($userQuery) {
-                $userQuery->where('estado', 'Activo');
-            })
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->limit(50)
+            ->when(
+                $termino !== '',
+                function (
+                    $query
+                ) use (
+                    $termino
+                ) {
+                    $query->where(
+                        function (
+                            $subQuery
+                        ) use (
+                            $termino
+                        ) {
+                            $subQuery
+                                ->whereHas(
+                                    'usuario',
+                                    function (
+                                        $userQuery
+                                    ) use (
+                                        $termino
+                                    ) {
+                                        $userQuery
+                                            ->where(
+                                                'nombres',
+                                                'ilike',
+                                                "%{$termino}%"
+                                            )
+                                            ->orWhere(
+                                                'primer_apellido',
+                                                'ilike',
+                                                "%{$termino}%"
+                                            )
+                                            ->orWhere(
+                                                'segundo_apellido',
+                                                'ilike',
+                                                "%{$termino}%"
+                                            )
+                                            ->orWhere(
+                                                'ci',
+                                                'ilike',
+                                                "%{$termino}%"
+                                            );
+                                    }
+                                )
+                                ->orWhere(
+                                    'carnet_sindical',
+                                    'ilike',
+                                    "%{$termino}%"
+                                );
+                        }
+                    );
+                }
+            )
+            ->whereHas(
+                'usuario',
+                function (
+                    $userQuery
+                ) {
+                    $userQuery->where(
+                        'estado',
+                        'Activo'
+                    );
+                }
+            )
+            ->orderByDesc(
+                'created_at'
+            )
+            ->orderByDesc(
+                'id'
+            )
+            ->limit(
+                50
+            )
             ->get();
     }
 }
