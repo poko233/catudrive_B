@@ -58,4 +58,11 @@ class Vehiculo extends Model
     {
         return $this->hasOne(Propietario::class, 'id_vehiculo');
     }
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(
+            AsignacionVehiculoChofer::class,
+            'id_vehiculo'
+        );
+    }
 }
