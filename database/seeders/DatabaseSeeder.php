@@ -71,11 +71,15 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         // 4. ROLES
         //    'Superadmin' debe coincidir con config('rbac.super_roles')
+        //
+        //    NOTA: 'Chofer' es un rol de negocio que NO es super-rol.
+        //    Sus permisos se resuelven por formulario_permiso normal.
         // =====================================================================
         $roles = [
             'Superadmin' => 'Acceso total al sistema',
             'Administrador' => 'Acceso administrativo',
             'Usuario' => 'Acceso básico de consulta',
+            'Chofer' => 'Chofer con acceso a venta de pasajes y encomiendas',
         ];
         foreach ($roles as $rol => $descripcion) {
             DB::table('rol')->updateOrInsert(
@@ -89,7 +93,7 @@ class DatabaseSeeder extends Seeder
             );
         }
         $rolIds = DB::table('rol')->pluck('id', 'rol');
-        $this->command->info('✅ Roles OK');
+        $this->command->info('✅ Roles OK (' . count($roles) . ')');
 
         // =====================================================================
         // 5. MÓDULOS — estructura completa del sistema
@@ -162,6 +166,11 @@ class DatabaseSeeder extends Seeder
         // 6. FORMULARIOS — estructura completa
         //    Cada entrada declara su módulo padre, del que se deriva
         //    automáticamente el pivot formulario_modulo.
+        //
+        //    IMPORTANTE:
+        //    El orden de este array determina el id autoincremental en
+        //    formulario. Los nuevos formularios de reportes van al final
+        //    para preservar los ids 1-17 ya existentes en producción.
         // =====================================================================
         $formularios = [
             // ─── Configuración / Núcleo ──────────────────────────────
@@ -173,8 +182,8 @@ class DatabaseSeeder extends Seeder
             'Empresas' => ['ruta' => '/empresa', 'descripcion' => null, 'modulo' => 'Configuracion'],
             'Sucursales' => ['ruta' => '/sucursales', 'descripcion' => null, 'modulo' => 'Configuracion'],
             'Usuarios' => ['ruta' => '/usuarios', 'descripcion' => null, 'modulo' => 'Configuracion'],
-            'Form -> Módulo' => ['ruta' => '/formulario_modulo', 'descripcion' => null, 'modulo' => 'Configuracion'],
-            'Módulo -> Rol' => ['ruta' => '/modulo_rol', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Formulario con Modulo' => ['ruta' => '/formulario_modulo', 'descripcion' => null, 'modulo' => 'Configuracion'],
+            'Modulo con Rol' => ['ruta' => '/modulo_rol', 'descripcion' => null, 'modulo' => 'Configuracion'],
 
             // ─── Dominio ─────────────────────────────────────────────
             'Recursos Humanos' => ['ruta' => '/recursoshumanos', 'descripcion' => 'Gestión de Usuarios y su información', 'modulo' => 'Recursos Humanos'],
@@ -184,6 +193,10 @@ class DatabaseSeeder extends Seeder
             'Asignaciones' => ['ruta' => '/asignaciones-vehiculos', 'descripcion' => 'Asignaciones de vehículo, choferes y rutas', 'modulo' => 'Asignaciones'],
             'Pasajes' => ['ruta' => '/venta', 'descripcion' => 'Módulo de ventas de pasajes', 'modulo' => 'Ventas'],
             'Encomiendas' => ['ruta' => '/encomiendas', 'descripcion' => null, 'modulo' => 'Encomiendas'],
+
+            // ─── Reportes (nuevos) ───────────────────────────────────
+            'Reportes Vehi.' => ['ruta' => '/vehiculos-reportes', 'descripcion' => null, 'modulo' => 'Vehiculos'],
+            'Reportes Vent.' => ['ruta' => '/ventas-reportes', 'descripcion' => null, 'modulo' => 'Ventas'],
         ];
 
         foreach ($formularios as $nombre => $data) {
@@ -204,6 +217,7 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         // 7. FORMULARIO ↔ MÓDULO
         //    Derivado automáticamente del array $formularios.
+        //    Incluye los nuevos 'Reportes' y 'Reportes V.'.
         // =====================================================================
         foreach ($formularios as $nombreForm => $data) {
             $idForm = $formularioIds[$nombreForm] ?? null;
@@ -223,15 +237,17 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         // 8. MÓDULO ↔ ROL
         //
-        //    Distribución real del dump:
+        //    Distribución idéntica al dump de producción:
         //      Superadmin    → los 9 módulos
         //      Administrador → Inicio, Configuracion, Vehiculos
         //      Usuario       → Inicio
+        //      Chofer        → Ventas, Encomiendas           (NUEVO)
         // =====================================================================
         $planModuloRol = [
             'Superadmin' => '*',
             'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos'],
             'Usuario' => ['Inicio'],
+            'Chofer' => ['Ventas', 'Encomiendas'],
         ];
 
         foreach ($planModuloRol as $nombreRol => $modulosPermitidos) {
@@ -270,11 +286,18 @@ class DatabaseSeeder extends Seeder
         // 9. PERMISOS (formulario_permiso)
         //
         //    Distribución idéntica al dump de producción:
-        //      Superadmin    → TODOS los formularios × 4 acciones         = 68
-        //      Administrador → Inicio + Configuracion + Vehiculos × 4    = 44
-        //      Usuario       → Inicio × [Ver]                            = 1
-        //                                                                   ───
-        //                                                                   113
+        //      Superadmin    → TODOS los formularios × 4 acciones
+        //                      19 formularios × 4 = 76
+        //      Administrador → Inicio + Configuracion + Vehiculos × 4
+        //                      (Inicio 1 + Configuracion 9 + Vehiculos 2) × 4 = 48
+        //      Usuario       → Inicio × [Ver]                        =  1
+        //      Chofer        → Ventas + Encomiendas × 4             = 12
+        //                                                             ────
+        //                                                             137
+        //
+        //    Los formularios 'Reportes' y 'Reportes V.' se incluyen
+        //    automáticamente al filtrar por nombre de módulo padre,
+        //    así que no hay que listarlos explícitamente.
         // =====================================================================
         $planPermisos = [
             'Superadmin' => [
@@ -288,6 +311,10 @@ class DatabaseSeeder extends Seeder
             'Usuario' => [
                 'modulos' => ['Inicio'],
                 'acciones' => ['Ver'],
+            ],
+            'Chofer' => [
+                'modulos' => ['Ventas', 'Encomiendas'],
+                'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
             ],
         ];
 
@@ -343,7 +370,59 @@ class DatabaseSeeder extends Seeder
         }
 
         // =====================================================================
-        // 10. USUARIO ADMINISTRADOR
+        // 10. SELECTORES OCULTOS (formulario_accion)
+        //
+        //     Reglas de visibilidad UI por rol.
+        //
+        //     El frontend consulta esta tabla para decidir qué elementos
+        //     HTML debe OCULTAR/deshabilitar para cada rol, incluso si el
+        //     rol tiene permiso 'Ver' sobre el formulario.
+        //
+        //     Estado actual en producción:
+        //       Chofer → Pasajes (.pasajes-resumen, .pasajes-crear)
+        //                ambos OCULTOS (habilitado = false)
+        // =====================================================================
+        $idRolChofer = $rolIds['Chofer'] ?? null;
+        $idFormPasajes = $formularioIds['Pasajes'] ?? null;
+
+        if ($idRolChofer && $idFormPasajes) {
+            /*
+             * Limpiamos primero las reglas del rol para ese formulario
+             * para evitar duplicados en corridas repetidas del seeder.
+             * La tabla no tiene UNIQUE en (id_rol, id_formulario, selector_html),
+             * así que el updateOrInsert no aplica aquí.
+             */
+            DB::table('formulario_accion')
+                ->where('id_rol', $idRolChofer)
+                ->where('id_formulario', $idFormPasajes)
+                ->delete();
+
+            DB::table('formulario_accion')->insert([
+                [
+                    'id_rol' => $idRolChofer,
+                    'id_formulario' => $idFormPasajes,
+                    'selector_html' => '.pasajes-resumen',
+                    'habilitado' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'id_rol' => $idRolChofer,
+                    'id_formulario' => $idFormPasajes,
+                    'selector_html' => '.pasajes-crear',
+                    'habilitado' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            ]);
+
+            $this->command->info('✅ Selectores ocultos Chofer/Pasajes OK (2)');
+        } else {
+            $this->command->warn('⚠️  No se pudieron sembrar selectores ocultos (Chofer o Pasajes no encontrado).');
+        }
+
+        // =====================================================================
+        // 11. USUARIO ADMINISTRADOR
         // =====================================================================
         $idUser = DB::table('user')->where('usuario', 'admin')->value('id');
 
