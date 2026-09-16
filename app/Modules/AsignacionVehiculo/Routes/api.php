@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Modules\AsignacionVehiculo\Controllers\AsignacionReporteController;
 use App\Modules\AsignacionVehiculo\Controllers\AsignacionVehiculoController;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| ASIGNACIONES DE VEHÍCULOS
+|--------------------------------------------------------------------------
+*/
 
 Route::prefix(
     'asignaciones-vehiculos'
@@ -15,12 +22,6 @@ Route::prefix(
     ])
     ->group(
         function (): void {
-            /*
-            |--------------------------------------------------------------------------
-            | LISTAR
-            |--------------------------------------------------------------------------
-            */
-
             Route::get(
                 '/',
                 [
@@ -34,12 +35,6 @@ Route::prefix(
                 ->name(
                     'asignaciones.vehiculos.index'
                 );
-
-            /*
-            |--------------------------------------------------------------------------
-            | CATÁLOGOS
-            |--------------------------------------------------------------------------
-            */
 
             Route::get(
                 '/catalogos',
@@ -55,12 +50,6 @@ Route::prefix(
                     'asignaciones.vehiculos.catalogos'
                 );
 
-            /*
-            |--------------------------------------------------------------------------
-            | HISTORIAL
-            |--------------------------------------------------------------------------
-            */
-
             Route::get(
                 '/historial',
                 [
@@ -74,12 +63,6 @@ Route::prefix(
                 ->name(
                     'asignaciones.vehiculos.historial'
                 );
-
-            /*
-            |--------------------------------------------------------------------------
-            | CREAR
-            |--------------------------------------------------------------------------
-            */
 
             Route::post(
                 '/',
@@ -95,12 +78,6 @@ Route::prefix(
                 ->name(
                     'asignaciones.vehiculos.store'
                 );
-
-            /*
-            |--------------------------------------------------------------------------
-            | CAMBIO
-            |--------------------------------------------------------------------------
-            */
 
             Route::put(
                 '/{asignacion}/cambiar',
@@ -120,12 +97,6 @@ Route::prefix(
                     'asignaciones.vehiculos.cambiar'
                 );
 
-            /*
-            |--------------------------------------------------------------------------
-            | FINALIZAR
-            |--------------------------------------------------------------------------
-            */
-
             Route::put(
                 '/{asignacion}/finalizar',
                 [
@@ -144,12 +115,6 @@ Route::prefix(
                     'asignaciones.vehiculos.finalizar'
                 );
 
-            /*
-            |--------------------------------------------------------------------------
-            | DETALLE
-            |--------------------------------------------------------------------------
-            */
-
             Route::get(
                 '/{asignacion}',
                 [
@@ -165,6 +130,69 @@ Route::prefix(
                 )
                 ->name(
                     'asignaciones.vehiculos.show'
+                );
+        }
+    );
+
+/*
+|--------------------------------------------------------------------------
+| REPORTES DE ASIGNACIONES
+|--------------------------------------------------------------------------
+|
+| Mismo patrón de los reportes de Vehículos y Choferes.
+|
+*/
+
+Route::prefix(
+    'asignaciones-vehiculos/reportes'
+)
+    ->middleware([
+        'auth:sanctum',
+        'usuario.activo',
+    ])
+    ->controller(
+        AsignacionReporteController::class
+    )
+    ->group(
+        function (): void {
+            Route::get(
+                '/{tipo}/html',
+                'html'
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'por_chofer',
+                        'historial',
+                        'sin_asignar',
+                    ]
+                )
+                ->middleware(
+                    'throttle:api',
+                    'permiso:Asignaciones,Reportes Asig.,Ver'
+                )
+                ->name(
+                    'asignaciones.reportes.html'
+                );
+
+            Route::get(
+                '/{tipo}/pdf',
+                'pdf'
+            )
+                ->whereIn(
+                    'tipo',
+                    [
+                        'por_chofer',
+                        'historial',
+                        'sin_asignar',
+                    ]
+                )
+                ->middleware(
+                    'throttle:api',
+                    'permiso:Asignaciones,Reportes Asig.,Ver'
+                )
+                ->name(
+                    'asignaciones.reportes.pdf'
                 );
         }
     );

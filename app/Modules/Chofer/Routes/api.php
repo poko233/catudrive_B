@@ -3,7 +3,14 @@
 declare(strict_types=1);
 
 use App\Modules\Chofer\Controllers\ChoferController;
+use App\Modules\Chofer\Controllers\ChoferReporteController;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| CRUD CHOFERES
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware([
     'auth:sanctum',
@@ -126,6 +133,7 @@ Route::middleware([
             ->name(
                 'choferes.destroy'
             );
+
         Route::get(
             '/search',
             'search'
@@ -135,5 +143,69 @@ Route::middleware([
             )
             ->name(
                 'choferes.search'
+            );
+    });
+
+/*
+|--------------------------------------------------------------------------
+| REPORTES DE CHOFERES
+|--------------------------------------------------------------------------
+|
+| Mismo patrón de Vehiculo/Routes/api.php:
+|
+| /api/choferes/reportes/{tipo}/html
+| /api/choferes/reportes/{tipo}/pdf
+|
+*/
+
+Route::prefix(
+    'choferes/reportes'
+)
+    ->middleware([
+        'auth:sanctum',
+        'usuario.activo',
+    ])
+    ->controller(
+        ChoferReporteController::class
+    )
+    ->group(function (): void {
+        Route::get(
+            '/{tipo}/html',
+            'html'
+        )
+            ->whereIn(
+                'tipo',
+                [
+                    'lista',
+                    'activos_inactivos',
+                    'carnets_sindicales',
+                ]
+            )
+            ->middleware(
+                'throttle:api',
+                'permiso:Choferes,Reportes Chof.,Ver'
+            )
+            ->name(
+                'choferes.reportes.html'
+            );
+
+        Route::get(
+            '/{tipo}/pdf',
+            'pdf'
+        )
+            ->whereIn(
+                'tipo',
+                [
+                    'lista',
+                    'activos_inactivos',
+                    'carnets_sindicales',
+                ]
+            )
+            ->middleware(
+                'throttle:api',
+                'permiso:Choferes,Reportes Chof.,Ver'
+            )
+            ->name(
+                'choferes.reportes.pdf'
             );
     });
