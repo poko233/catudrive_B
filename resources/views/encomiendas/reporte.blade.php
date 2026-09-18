@@ -199,9 +199,9 @@
                         <td>{{ $item->guia }}</td>
                         <td>{{ $item->created_at?->format('d/m/Y') ?? '-' }}</td>
                         <td>
-                            {{ $item->ruta?->origen ?? '-' }}
+                            {{ $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ?? '-' }}
                             -
-                            {{ $item->ruta?->destino ?? '-' }}
+                            {{ $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}
                         </td>
                         <td>{{ $item->remitente }}</td>
                         <td>{{ $item->destinatario }}</td>

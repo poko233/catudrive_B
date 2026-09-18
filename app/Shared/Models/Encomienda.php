@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Shared\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -20,7 +19,6 @@ class Encomienda extends Model
     protected $fillable = [
         'guia',
         'qr_token',
-        'id_ruta',
         'remitente',
         'destinatario',
         'descripcion',
@@ -33,22 +31,12 @@ class Encomienda extends Model
     {
         return [
             'id' => 'integer',
-            'id_ruta' => 'integer',
             'cantidad' => 'integer',
             'precio' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
-    }
-
-    public function ruta(): BelongsTo
-    {
-        return $this->belongsTo(
-            Ruta::class,
-            'id_ruta',
-            'id'
-        );
     }
 
     public function viajeEncomienda(): HasOne

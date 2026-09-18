@@ -35,7 +35,6 @@ class EncomiendaService
     {
         $query = Encomienda::query()
             ->with([
-                'ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
@@ -146,7 +145,7 @@ class EncomiendaService
                             ->orWhere('destinatario', 'like', $like)
                             ->orWhere('descripcion', 'like', $like)
                             ->orWhereHas(
-                                'ruta',
+                                'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                                 fn (Builder $ruta) =>
                                     $ruta
                                         ->where('origen', 'like', $like)
@@ -605,7 +604,6 @@ class EncomiendaService
                 $encomienda = Encomienda::query()->create([
                     'guia' => null,
                     'qr_token' => Str::random(64),
-                    'id_ruta' => (int) $vehiculoChoferRuta->id_ruta,
                     'remitente' => $data['remitente'],
                     'destinatario' => $data['destinatario'],
                     'descripcion' => $data['descripcion'] ?? null,
@@ -875,24 +873,6 @@ class EncomiendaService
                     throw ValidationException::withMessages([
                         'id_viaje' =>
                             'El viaje seleccionado no tiene una asignación de vehículo y chofer.',
-                    ]);
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | VALIDAR ORIGEN Y DESTINO
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    (int)
-                    $encomienda->id_ruta !==
-                    (int)
-                    $vehiculoChoferRuta->id_ruta
-                ) {
-                    throw ValidationException::withMessages([
-                        'id_viaje' =>
-                            'El viaje seleccionado no corresponde a la ruta de la encomienda.',
                     ]);
                 }
 
@@ -1246,8 +1226,14 @@ class EncomiendaService
     ): array {
         $encomienda
             ->loadMissing([
-                'viajeEncomienda.viaje',
+                'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
             ]);
+
+        $ruta = $encomienda
+            ->viajeEncomienda
+            ?->viaje
+            ?->vehiculoChoferRuta
+            ?->ruta;
 
         return [
             'id' =>
@@ -1264,10 +1250,10 @@ class EncomiendaService
                 $encomienda->destinatario,
 
             'origen' =>
-                $encomienda->origen,
+                $ruta?->origen,
 
             'destino' =>
-                $encomienda->destino,
+                $ruta?->destino,
 
             'descripcion' =>
                 $encomienda->descripcion,

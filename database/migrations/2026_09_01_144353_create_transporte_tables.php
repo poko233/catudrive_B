@@ -196,16 +196,15 @@ return new class extends Migration {
         // ─── ENCOMIENDA ───────────────────────────────────────────
         Schema::create('encomienda', function (Blueprint $table) {
             $table->id();
-            $table->string('guia', 255)->nullable();
+            $table->string('guia', 255)->nullable()->unique();
             $table->string('remitente', 255)->nullable();
             $table->string('destinatario', 255)->nullable();
-            $table->string('origen', 255)->nullable();
-            $table->string('destino', 255)->nullable();
             $table->text('descripcion')->nullable();
             $table->integer('cantidad')->default(1);
             $table->decimal('precio', 10, 2)->default(0);
             $table->enum('estado', ['Registrada', 'En tránsito', 'Entregada', 'Anulada'])
                 ->default('Registrada');
+            $table->string('qr_token', 64)->nullable()->unique();
             $table->timestamps();
             $table->softDeletes();
 
@@ -273,7 +272,7 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('vehiculo_chofer_ruta_encomienda');
+        Schema::dropIfExists('viaje_encomienda');
         Schema::dropIfExists('detalle_venta');
         Schema::dropIfExists('venta');
         Schema::dropIfExists('encomienda');
