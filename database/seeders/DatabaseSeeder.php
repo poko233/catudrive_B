@@ -193,10 +193,10 @@ class DatabaseSeeder extends Seeder
             'Asignaciones' => ['ruta' => '/asignaciones-vehiculos', 'descripcion' => 'Asignaciones de vehículo, choferes y rutas', 'modulo' => 'Asignaciones'],
             'Pasajes' => ['ruta' => '/venta', 'descripcion' => 'Módulo de ventas de pasajes', 'modulo' => 'Ventas'],
             'Encomiendas' => ['ruta' => '/encomiendas', 'descripcion' => null, 'modulo' => 'Encomiendas'],
-
-            // ─── Reportes (nuevos) ───────────────────────────────────
             'Reportes Vehi.' => ['ruta' => '/vehiculos-reportes', 'descripcion' => null, 'modulo' => 'Vehiculos'],
             'Reportes Vent.' => ['ruta' => '/ventas-reportes', 'descripcion' => null, 'modulo' => 'Ventas'],
+            'Reportes Chof.' => ['ruta' => '/choferes-reportes', 'descripcion' => null, 'modulo' => 'Choferes'],
+            'Reportes Asig.' => ['ruta' => '/asignaciones-reportes', 'descripcion' => null, 'modulo' => 'Asignaciones'],
         ];
 
         foreach ($formularios as $nombre => $data) {
@@ -217,7 +217,7 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         // 7. FORMULARIO ↔ MÓDULO
         //    Derivado automáticamente del array $formularios.
-        //    Incluye los nuevos 'Reportes' y 'Reportes V.'.
+        //    Incluye automáticamente los formularios de reportes.
         // =====================================================================
         foreach ($formularios as $nombreForm => $data) {
             $idForm = $formularioIds[$nombreForm] ?? null;
@@ -293,7 +293,7 @@ class DatabaseSeeder extends Seeder
         //      Usuario       → Inicio × [Ver]                        =  1
         //      Chofer        → Ventas + Encomiendas × 4             = 12
         //                                                             ────
-        //                                                             137
+        //                                                             145
         //
         //    Los formularios 'Reportes' y 'Reportes V.' se incluyen
         //    automáticamente al filtrar por nombre de módulo padre,
