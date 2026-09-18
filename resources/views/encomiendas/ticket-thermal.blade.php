@@ -84,7 +84,7 @@ body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;c
 <div class="center">{{ $tipo === 'comprobante' ? 'DETALLE DE ENCOMIENDA' : 'ENCOMIENDA' }}</div>
 <div class="center guide">{{ $encomienda->guia }}</div>
 <div class="line"></div>
-<div class="row"><span class="label">Ruta:</span> {{ $encomienda->ruta?->origen ?? '-' }} → {{ $encomienda->ruta?->destino ?? '-' }}</div>
+<div class="row"><span class="label">Ruta:</span> {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ?? '-' }} → {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}</div>
 <div class="row"><span class="label">Remitente:</span> {{ $encomienda->remitente }}</div>
 <div class="row"><span class="label">Destinatario:</span> {{ $encomienda->destinatario }}</div>
 <div class="row"><span class="label">Cantidad:</span> {{ $encomienda->cantidad }}</div>

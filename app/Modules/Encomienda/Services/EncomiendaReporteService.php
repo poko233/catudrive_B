@@ -26,7 +26,6 @@ class EncomiendaReporteService
     {
         $query = Encomienda::query()
             ->with([
-                'ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
@@ -94,12 +93,13 @@ class EncomiendaReporteService
                 ]
             )
         ) {
-            $query->where(
-                'id_ruta',
-                (int)
-                $filtros[
-                    'id_ruta'
-                ]
+            $query->whereHas(
+                'viajeEncomienda.viaje.vehiculoChoferRuta',
+                fn (Builder $vcr) =>
+                    $vcr->where(
+                        'id_ruta',
+                        (int) $filtros['id_ruta']
+                    )
             );
 
             $query->where(
@@ -305,7 +305,10 @@ class EncomiendaReporteService
                             (string)
                             (
                                 $encomienda
-                                    ->ruta
+                                    ->viajeEncomienda
+                                    ?->viaje
+                                    ?->vehiculoChoferRuta
+                                    ?->ruta
                                     ?->destino
                                 ?? ''
                             )
@@ -321,7 +324,10 @@ class EncomiendaReporteService
                     ): string {
                         return
                             $encomienda
-                                ->ruta
+                                ->viajeEncomienda
+                                ?->viaje
+                                ?->vehiculoChoferRuta
+                                ?->ruta
                                 ?->destino
                             ?? 'Sin destino';
                     }

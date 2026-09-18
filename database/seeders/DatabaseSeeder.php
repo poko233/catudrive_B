@@ -422,7 +422,31 @@ class DatabaseSeeder extends Seeder
         }
 
         // =====================================================================
-        // 11. USUARIO ADMINISTRADOR
+        // 11. CATEGORÍAS DE VEHÍCULO
+        // =====================================================================
+        $categoriasVehiculo = [
+            'Bus',
+            'Minibús',
+            'Surubí',
+        ];
+
+        foreach ($categoriasVehiculo as $categoria) {
+            DB::table('categoria_vehiculo')->updateOrInsert(
+                ['categoria' => $categoria],
+                [
+                    'categoria' => $categoria,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+        }
+
+        $this->command->info(
+            '✅ Categorías de vehículo OK (' . count($categoriasVehiculo) . ')'
+        );
+
+        // =====================================================================
+        // 12. USUARIO ADMINISTRADOR
         // =====================================================================
         $idUser = DB::table('user')->where('usuario', 'admin')->value('id');
 
