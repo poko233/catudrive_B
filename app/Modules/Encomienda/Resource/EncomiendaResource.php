@@ -51,9 +51,6 @@ class EncomiendaResource extends JsonResource
         |--------------------------------------------------------------------------
         */
 
-        $ruta =
-            $this->ruta;
-
         $viajeEncomienda =
             $this
                 ->viajeEncomienda;
@@ -113,11 +110,9 @@ class EncomiendaResource extends JsonResource
                     ),
 
             'id_ruta' =>
-                $this->id_ruta
-                    !== null
-                        ? (int)
-                        $this->id_ruta
-                        : null,
+                $rutaViaje
+                    ? (int) $rutaViaje->id
+                    : null,
 
             /*
             |--------------------------------------------------------------------------
@@ -130,28 +125,28 @@ class EncomiendaResource extends JsonResource
             */
 
             'origen' =>
-                $ruta
+                $rutaViaje
                     ?->origen,
 
             'destino' =>
-                $ruta
+                $rutaViaje
                     ?->destino,
 
             'ruta' =>
-                $ruta
+                $rutaViaje
                     ? [
                         'id' =>
                             (int)
-                            $ruta->id,
+                            $rutaViaje->id,
 
                         'origen' =>
-                            $ruta->origen,
+                            $rutaViaje->origen,
 
                         'destino' =>
-                            $ruta->destino,
+                            $rutaViaje->destino,
 
                         'estado' =>
-                            $ruta->estado,
+                            $rutaViaje->estado,
                     ]
                     : null,
 

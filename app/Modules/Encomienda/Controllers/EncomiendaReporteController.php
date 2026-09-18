@@ -544,11 +544,11 @@ class EncomiendaReporteController extends Controller
                 ) ??
                 '',
             (string) (
-                $item->ruta?->origen ??
+                $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ??
                 ''
             ),
             (string) (
-                $item->ruta?->destino ??
+                $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ??
                 ''
             ),
             (string) (
