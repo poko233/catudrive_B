@@ -144,11 +144,7 @@ return new class extends Migration {
             $table->unsignedInteger('orden')->default(0);
             $table->enum('estado', ['Activo', 'Inactivo'])->default('Activo');
             $table->timestamps();
-            /*
-         |--------------------------------------------------------------------------
-         | Índices
-         |--------------------------------------------------------------------------
-         */
+
             $table->index('orden');
             $table->index(['estado', 'orden']);
         });
@@ -221,10 +217,124 @@ return new class extends Migration {
 
             $table->index(['id_rol', 'id_formulario']);
         });
+
+        // ─── Tipo de transacción ──────────────────────────────────
+        Schema::create('tipo_transaccion', function (Blueprint $table) {
+            $table->id();
+            $table->string('codigo', 10)->unique();
+            $table->string('transaccion', 80);
+            $table->enum('tipo_transaccion', ['Ingreso', 'Egreso'])->default('Ingreso');
+            $table->timestamps();
+        });
+
+        // ─── Arqueo ───────────────────────────────────────
+        Schema::create('arqueo', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('id_user')
+                ->constrained('user')
+                ->onDelete('restrict');
+
+            $table->dateTime('fecha_apertura');
+            $table->dateTime('fecha_cierre')->nullable();
+            $table->decimal('saldo_anterior', 10, 2)->default(0);
+
+            $table->decimal('total_efectivo', 10, 2)->nullable();
+            $table->decimal('total_tarjeta', 10, 2)->nullable();
+            $table->decimal('total_qr', 10, 2)->nullable();
+            $table->decimal('total_transferencia', 10, 2)->nullable();
+            $table->decimal('total_general', 10, 2)->nullable();
+
+            $table->unsignedInteger('billete_200')->default(0);
+            $table->unsignedInteger('billete_100')->default(0);
+            $table->unsignedInteger('billete_50')->default(0);
+            $table->unsignedInteger('billete_20')->default(0);
+            $table->unsignedInteger('billete_10')->default(0);
+            $table->unsignedInteger('moneda_5')->default(0);
+            $table->unsignedInteger('moneda_2')->default(0);
+            $table->unsignedInteger('moneda_1')->default(0);
+            $table->unsignedInteger('moneda_50_ctvs')->default(0);
+            $table->unsignedInteger('moneda_20_ctvs')->default(0);
+            $table->unsignedInteger('moneda_10_ctvs')->default(0);
+
+            $table->enum('estado', ['Iniciado', 'Terminado'])->default('Iniciado');
+            $table->timestamps();
+            $table->softDeletes();
+            $table->index('estado');
+            $table->index(['id_user', 'fecha_apertura']);
+        });
+
+        // ─── Ingreso ──────────────────────────────────────
+        Schema::create('ingreso', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('id_user')
+                ->constrained('user')
+                ->onDelete('restrict');
+            $table->foreignId('id_arqueo')
+                ->constrained('arqueo')
+                ->onDelete('restrict');
+            $table->foreignId('id_tipo_transaccion')
+                ->constrained('tipo_transaccion')
+                ->onDelete('restrict');
+
+            $table->enum('tipo_pago', [
+                'Efectivo',
+                'Tarjeta',
+                'QR',
+            ]);
+
+            $table->dateTime('fecha_registro');
+            $table->text('detalle');
+            $table->decimal('monto', 10, 2);
+            $table->enum('estado', ['Valido', 'Anulado'])->default('Valido');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('id_user');
+            $table->index('id_tipo_transaccion');
+            $table->index('estado');
+            $table->index(['id_arqueo', 'estado']);
+        });
+
+        // ─── Egreso ───────────────────────────────────────
+        Schema::create('egreso', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('id_user')
+                ->constrained('user')
+                ->onDelete('restrict');
+            $table->foreignId('id_arqueo')
+                ->constrained('arqueo')
+                ->onDelete('restrict');
+            $table->foreignId('id_tipo_transaccion')
+                ->constrained('tipo_transaccion')
+                ->onDelete('restrict');
+
+            $table->enum('tipo_pago', [
+                'Efectivo',
+                'Tarjeta',
+                'QR',
+                'Transferencia',
+            ]);
+
+            $table->dateTime('fecha_registro');
+            $table->text('detalle');
+            $table->decimal('monto', 10, 2);
+            $table->enum('estado', ['Valido', 'Anulado'])->default('Valido');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('id_user');
+            $table->index('id_tipo_transaccion');
+            $table->index('estado');
+            $table->index(['id_arqueo', 'estado']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('egreso');
+        Schema::dropIfExists('ingreso');
+        Schema::dropIfExists('arqueo');
+        Schema::dropIfExists('tipo_transaccion');
         Schema::dropIfExists('formulario_accion');
         Schema::dropIfExists('formulario_permiso');
         Schema::dropIfExists('formulario_modulo');
