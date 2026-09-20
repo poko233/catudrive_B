@@ -14,12 +14,15 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use App\Modules\Arqueo\Services\ArqueoService;
+use App\Shared\Models\Ingreso;
 
 class VentaService
 {
     public function __construct(
         private readonly QrService $qrService,
         private readonly ChoferContextService $choferContext,
+        private readonly ArqueoService $arqueoService,
     ) {
     }
 
@@ -297,7 +300,11 @@ class VentaService
             throw new RuntimeException('Solo se puede confirmar una venta pendiente.');
         }
 
-        DB::transaction(function () use ($venta, $formaPago, $pasajeros) {
+        // Normaliza ANTES de la transacción: si el valor no es
+        // soportado por el módulo de arqueo, la venta no se toca.
+        $tipoPago = $this->normalizarFormaPago($formaPago);
+
+        DB::transaction(function () use ($venta, $formaPago, $tipoPago, $pasajeros) {
             $detallesVenta = $venta->detalles->keyBy('id');
 
             foreach ($pasajeros as $datosPasajero) {
@@ -338,6 +345,18 @@ class VentaService
                 'forma_pago' => $formaPago,
                 'precio_total' => $venta->detalles()->sum('precio_unitario'),
             ]);
+
+            // ─── Registro del ingreso en caja ────────────────────
+            // Se ejecuta DENTRO de la misma transacción: si falla,
+            // la venta no se confirma.
+            $this->arqueoService->registrarIngreso(
+                idUser: (int) $venta->id_user,
+                tipoTransaccion: 'VPASAJE',
+                monto: (float) $venta->precio_total,
+                tipoPago: $tipoPago,
+                detalle: $this->construirDetalleIngreso($venta),
+                nombreTipoTransaccion: 'Venta de pasaje',
+            );
         });
 
         return $venta->fresh()->load([
@@ -378,6 +397,9 @@ class VentaService
         }
 
         DB::transaction(function () use ($venta) {
+            // Anular el ingreso asociado (si existe y está válido).
+            $this->anularIngresoDeVenta($venta);
+
             $venta->detalles()->delete();
             $venta->update(['estado' => 'Anulada']);
             $venta->delete();
@@ -479,5 +501,82 @@ class VentaService
     public function generarQrData(int $ventaId): string
     {
         return $this->qrService->generateQrImage($ventaId);
+    }
+    // ─────────────────────────────────────────────────────────────
+    // INTEGRACIÓN CON ARQUEO
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Detalle canónico del ingreso asociado a una venta.
+     * Se usa el mismo formato en creación y en búsqueda, para poder
+     * localizar el ingreso desde `anularVenta()` sin columna FK.
+     */
+    private function construirDetalleIngreso(Venta $venta): string
+    {
+        return sprintf('Venta #%d - Viaje #%d', $venta->id, $venta->id_viaje);
+    }
+
+    /**
+     * Anula el ingreso válido asociado a la venta.
+     *
+     * Si la venta fue creada ANTES de integrar el arqueo, no
+     * habrá ingreso asociado — en ese caso no hace nada.
+     */
+    private function anularIngresoDeVenta(Venta $venta): void
+    {
+        $ingreso = Ingreso::query()
+            ->where('id_user', $venta->id_user)
+            ->where('detalle', $this->construirDetalleIngreso($venta))
+            ->where('estado', 'Valido')
+            ->latest('id')
+            ->first();
+
+        if (!$ingreso) {
+            return;
+        }
+
+        $this->arqueoService->anularIngreso($ingreso);
+    }
+
+    /**
+     * Normaliza el valor libre de `forma_pago` al enum cerrado de
+     * `ingreso.tipo_pago` / `egreso.tipo_pago`.
+     *
+     * @throws RuntimeException si no se puede mapear.
+     */
+    private function normalizarFormaPago(string $formaPago): string
+    {
+        $clave = mb_strtolower(trim($formaPago));
+
+        $mapa = [
+            'efectivo' => 'Efectivo',
+            'cash' => 'Efectivo',
+
+            'tarjeta' => 'Tarjeta',
+            'tarjeta de credito' => 'Tarjeta',
+            'tarjeta de crédito' => 'Tarjeta',
+            'tarjeta de debito' => 'Tarjeta',
+            'tarjeta de débito' => 'Tarjeta',
+            'credito' => 'Tarjeta',
+            'crédito' => 'Tarjeta',
+            'debito' => 'Tarjeta',
+            'débito' => 'Tarjeta',
+            'card' => 'Tarjeta',
+
+            'qr' => 'QR',
+
+            'transferencia' => 'Transferencia',
+            'transferencia bancaria' => 'Transferencia',
+            'transfer' => 'Transferencia',
+        ];
+
+        if (isset($mapa[$clave])) {
+            return $mapa[$clave];
+        }
+
+        throw new RuntimeException(
+            "Forma de pago '{$formaPago}' no soportada por el módulo de arqueo. "
+            . "Use uno de: Efectivo, Tarjeta, QR, Transferencia."
+        );
     }
 }
