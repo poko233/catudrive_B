@@ -203,10 +203,10 @@
                             -
                             {{ $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}
                         </td>
-                        <td>{{ $item->remitente }}</td>
-                        <td>{{ $item->destinatario }}</td>
-                        <td>{{ $item->descripcion ?: '-' }}</td>
-                        <td class="center">{{ $item->cantidad }}</td>
+                        <td>{{ trim(implode(' ', array_filter([$item->remitente?->nombres, $item->remitente?->apellido_paterno, $item->remitente?->apellido_materno]))) }}</td>
+                        <td>{{ trim(implode(' ', array_filter([$item->destinatario?->nombres, $item->destinatario?->apellido_paterno, $item->destinatario?->apellido_materno]))) }}</td>
+                        <td>{{ $item->concepto ?: '-' }}</td>
+                        <td class="center">{{ $item->detalles->sum('cantidad') }}</td>
                         <td>{{ $item->estado }}</td>
                         <td>
                             @if($viaje)
@@ -224,7 +224,7 @@
                                 <br>{{ $nombreVehiculo }}
                             @endif
                         </td>
-                        <td class="right">Bs {{ number_format((float) $item->precio, 2) }}</td>
+                        <td class="right">Bs {{ number_format((float) $item->total, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>

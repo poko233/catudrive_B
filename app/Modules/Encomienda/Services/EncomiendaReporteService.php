@@ -26,6 +26,10 @@ class EncomiendaReporteService
     {
         $query = Encomienda::query()
             ->with([
+                'remitente',
+                'destinatario',
+                'detalles',
+                'usuarioRegistro',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.ruta',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
                 'viajeEncomienda.viaje.vehiculoChoferRuta.asignacion.vehiculo',
@@ -171,7 +175,7 @@ class EncomiendaReporteService
                         ->queryBase()
                         ->where(
                             'estado',
-                            'Registrada'
+                            'En origen'
                         ),
                     $filtros
                 )
@@ -212,8 +216,9 @@ class EncomiendaReporteService
                         ->whereIn(
                             'estado',
                             [
-                                'Registrada',
+                                'En origen',
                                 'En tránsito',
+                                'En destino',
                             ]
                         ),
                     $filtros
@@ -348,7 +353,7 @@ class EncomiendaReporteService
                                 number_format(
                                     (float)
                                     $grupo->sum(
-                                        'precio'
+                                        'total'
                                     ),
                                     2,
                                     '.',
@@ -399,6 +404,10 @@ class EncomiendaReporteService
                             'estado',
                             '!=',
                             'Anulada'
+                        )
+                        ->where(
+                            'estado_pago',
+                            'Pagado'
                         ),
                     $filtros
                 )
@@ -414,7 +423,7 @@ class EncomiendaReporteService
                         Encomienda $item
                     ) =>
                         (float)
-                        $item->precio
+                        $item->total
                 );
 
         return [

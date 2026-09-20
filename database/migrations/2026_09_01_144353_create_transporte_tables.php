@@ -139,6 +139,21 @@ return new class extends Migration {
             $table->index('ci');
         });
 
+        // ─── CLIENTE ──────────────────────────────────────────────
+        Schema::create('cliente', function (Blueprint $table) {
+            $table->id();
+            $table->string('nombres', 255);
+            $table->string('apellido_paterno', 255);
+            $table->string('apellido_materno', 255)->nullable();
+            $table->string('ci', 255)->nullable()->unique();
+            $table->string('telefono', 30)->nullable();
+            $table->timestamps();
+
+            $table->index('nombres');
+            $table->index('apellido_paterno');
+            $table->index('telefono');
+        });
+
         // ─── PISO ─────────────────────────────────────────────────
         Schema::create('piso', function (Blueprint $table) {
             $table->id();
@@ -197,18 +212,49 @@ return new class extends Migration {
         Schema::create('encomienda', function (Blueprint $table) {
             $table->id();
             $table->string('guia', 255)->nullable()->unique();
-            $table->string('remitente', 255)->nullable();
-            $table->string('destinatario', 255)->nullable();
-            $table->text('descripcion')->nullable();
-            $table->integer('cantidad')->default(1);
-            $table->decimal('precio', 10, 2)->default(0);
-            $table->enum('estado', ['Registrada', 'En tránsito', 'Entregada', 'Anulada'])
-                ->default('Registrada');
+            $table->foreignId('id_remitente')
+                ->constrained('cliente')
+                ->onDelete('restrict');
+            $table->foreignId('id_destinatario')
+                ->constrained('cliente')
+                ->onDelete('restrict');
+            $table->foreignId('id_user_registro')
+                ->constrained('user')
+                ->onDelete('restrict');
+            $table->text('concepto')->nullable();
+            $table->decimal('subtotal', 10, 2)->default(0);
+            $table->decimal('descuento', 10, 2)->default(0);
+            $table->decimal('total', 10, 2)->default(0);
+            $table->enum('lugar_pago', ['Origen', 'Destino'])->default('Origen');
+            $table->enum('estado_pago', ['Pendiente', 'Pagado'])->default('Pendiente');
+            $table->enum('tipo_pago', ['Efectivo', 'QR', 'Transferencia'])->nullable();
+            $table->enum('estado', ['En origen', 'En tránsito', 'En destino', 'Entregada', 'Anulada'])
+                ->default('En origen');
             $table->string('qr_token', 64)->nullable()->unique();
             $table->timestamps();
             $table->softDeletes();
 
+            $table->index('id_remitente');
+            $table->index('id_destinatario');
+            $table->index('id_user_registro');
             $table->index('estado');
+            $table->index('estado_pago');
+            $table->index('lugar_pago');
+            $table->index('tipo_pago');
+        });
+
+        // ─── DETALLE ENCOMIENDA ──────────────────────────────────
+        Schema::create('detalle_encomienda', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('id_encomienda')
+                ->constrained('encomienda')
+                ->onDelete('restrict');
+            $table->string('detalle', 255);
+            $table->unsignedInteger('cantidad');
+            $table->decimal('precio_unitario', 10, 2);
+            $table->timestamps();
+
+            $table->index('id_encomienda');
         });
 
         // ─── VENTA ────────────────────────────────────────────────
@@ -275,10 +321,12 @@ return new class extends Migration {
         Schema::dropIfExists('viaje_encomienda');
         Schema::dropIfExists('detalle_venta');
         Schema::dropIfExists('venta');
+        Schema::dropIfExists('detalle_encomienda');
         Schema::dropIfExists('encomienda');
         Schema::dropIfExists('propietario');
         Schema::dropIfExists('asiento');
         Schema::dropIfExists('piso');
+        Schema::dropIfExists('cliente');
         Schema::dropIfExists('pasajero');
         Schema::dropIfExists('viaje');
         Schema::dropIfExists('vehiculo_chofer_ruta');
