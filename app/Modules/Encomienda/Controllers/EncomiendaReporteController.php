@@ -551,26 +551,11 @@ class EncomiendaReporteController extends Controller
                 $item->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ??
                 ''
             ),
-            (string) (
-                $item->remitente ??
-                ''
-            ),
-            (string) (
-                $item->destinatario ??
-                ''
-            ),
-            (string) (
-                $item->descripcion ??
-                ''
-            ),
-            (int) (
-                $item->cantidad ??
-                0
-            ),
-            (float) (
-                $item->precio ??
-                0
-            ),
+            trim(implode(' ', array_filter([$item->remitente?->nombres, $item->remitente?->apellido_paterno, $item->remitente?->apellido_materno]))),
+            trim(implode(' ', array_filter([$item->destinatario?->nombres, $item->destinatario?->apellido_paterno, $item->destinatario?->apellido_materno]))),
+            (string) ($item->concepto ?? ''),
+            (int) $item->detalles->sum('cantidad'),
+            (float) ($item->total ?? 0),
             (string) (
                 $item->estado ??
                 ''

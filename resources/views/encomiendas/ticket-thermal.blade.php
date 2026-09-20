@@ -85,12 +85,12 @@ body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;c
 <div class="center guide">{{ $encomienda->guia }}</div>
 <div class="line"></div>
 <div class="row"><span class="label">Ruta:</span> {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ?? '-' }} → {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}</div>
-<div class="row"><span class="label">Remitente:</span> {{ $encomienda->remitente }}</div>
-<div class="row"><span class="label">Destinatario:</span> {{ $encomienda->destinatario }}</div>
-<div class="row"><span class="label">Cantidad:</span> {{ $encomienda->cantidad }}</div>
-<div class="row"><span class="label">Precio:</span> Bs. {{ number_format((float) $encomienda->precio, 2) }}</div>
+<div class="row"><span class="label">Remitente:</span> {{ trim(implode(' ', array_filter([$encomienda->remitente?->nombres, $encomienda->remitente?->apellido_paterno, $encomienda->remitente?->apellido_materno]))) }}</div>
+<div class="row"><span class="label">Destinatario:</span> {{ trim(implode(' ', array_filter([$encomienda->destinatario?->nombres, $encomienda->destinatario?->apellido_paterno, $encomienda->destinatario?->apellido_materno]))) }}</div>
+<div class="row"><span class="label">Cantidad:</span> {{ $encomienda->detalles->sum('cantidad') }}</div>
+<div class="row"><span class="label">Precio:</span> Bs. {{ number_format((float) $encomienda->total, 2) }}</div>
 @if($tipo === 'comprobante')
-<div class="row"><span class="label">Descripción:</span> {{ $encomienda->descripcion ?: '-' }}</div>
+<div class="row"><span class="label">Descripción:</span> {{ $encomienda->concepto ?: '-' }}</div>
 <div class="row"><span class="label">Estado:</span> {{ $encomienda->estado }}</div>
 <div class="row"><span class="label">Viaje:</span> #{{ $encomienda->viajeEncomienda?->id_viaje ?? '-' }}</div>
 @endif

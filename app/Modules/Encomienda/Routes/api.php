@@ -4,7 +4,16 @@ declare(strict_types=1);
 
 use App\Modules\Encomienda\Controllers\EncomiendaController;
 use App\Modules\Encomienda\Controllers\EncomiendaReporteController;
+use App\Modules\Encomienda\Controllers\ClienteController;
 use Illuminate\Support\Facades\Route;
+
+
+Route::prefix('clientes')->middleware(['auth:sanctum','usuario.activo','throttle:api','permiso:Encomiendas,Encomiendas,Ver'])->group(function (): void {
+    Route::get('/', [ClienteController::class, 'index'])->name('clientes.index');
+    Route::post('/', [ClienteController::class, 'store'])->middleware(['permiso:Encomiendas,Encomiendas,Crear','throttle:write'])->name('clientes.store');
+    Route::put('/{cliente}', [ClienteController::class, 'update'])->whereNumber('cliente')->middleware(['permiso:Encomiendas,Encomiendas,Editar','throttle:write'])->name('clientes.update');
+    Route::delete('/{cliente}', [ClienteController::class, 'destroy'])->whereNumber('cliente')->middleware(['permiso:Encomiendas,Encomiendas,Eliminar','throttle:write'])->name('clientes.destroy');
+});
 
 Route::prefix(
     'encomiendas'

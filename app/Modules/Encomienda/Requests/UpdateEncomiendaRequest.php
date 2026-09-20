@@ -1,97 +1,16 @@
 <?php
 
 declare(strict_types=1);
-
 namespace App\Modules\Encomienda\Requests;
-
 use Illuminate\Foundation\Http\FormRequest;
-
-class UpdateEncomiendaRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    public function rules(): array
-    {
-        return [
-            'remitente' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'destinatario' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'descripcion' => [
-                'nullable',
-                'string',
-            ],
-
-            'cantidad' => [
-                'required',
-                'integer',
-                'min:1',
-            ],
-
-            'precio' => [
-                'required',
-                'numeric',
-                'min:0',
-                'decimal:0,2',
-            ],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'remitente.required' =>
-                'El remitente es obligatorio.',
-
-            'remitente.string' =>
-                'El remitente no es válido.',
-
-            'remitente.max' =>
-                'El remitente no puede superar los 255 caracteres.',
-
-            'destinatario.required' =>
-                'El destinatario es obligatorio.',
-
-            'destinatario.string' =>
-                'El destinatario no es válido.',
-
-            'destinatario.max' =>
-                'El destinatario no puede superar los 255 caracteres.',
-
-            'descripcion.string' =>
-                'La descripción no es válida.',
-
-            'cantidad.required' =>
-                'La cantidad es obligatoria.',
-
-            'cantidad.integer' =>
-                'La cantidad debe ser un número entero.',
-
-            'cantidad.min' =>
-                'La cantidad debe ser mayor o igual a 1.',
-
-            'precio.required' =>
-                'El precio es obligatorio.',
-
-            'precio.numeric' =>
-                'El precio debe ser numérico.',
-
-            'precio.min' =>
-                'El precio no puede ser negativo.',
-
-            'precio.decimal' =>
-                'El precio puede tener como máximo 2 decimales.',
-        ];
-    }
+class UpdateEncomiendaRequest extends FormRequest {
+ public function authorize(): bool { return true; }
+ public function rules(): array { return [
+  'id_remitente'=>['sometimes','required','integer','exists:cliente,id'], 'id_destinatario'=>['sometimes','required','integer','exists:cliente,id'],
+  'concepto'=>['sometimes','nullable','string','max:1000'], 'descuento'=>['sometimes','numeric','min:0','decimal:0,2'],
+  'lugar_pago'=>['sometimes','required','in:Origen,Destino'], 'estado_pago'=>['sometimes','required','in:Pendiente,Pagado'],
+  'tipo_pago'=>['sometimes','nullable','in:Efectivo,QR,Transferencia'],
+  'detalles'=>['sometimes','required','array','min:1'], 'detalles.*.detalle'=>['required_with:detalles','string','max:255'],
+  'detalles.*.cantidad'=>['required_with:detalles','integer','min:1'], 'detalles.*.precio_unitario'=>['required_with:detalles','numeric','min:0','decimal:0,2'],
+ ]; }
 }
