@@ -13,12 +13,14 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Modules\Pasaje\Services\ChoferContextService;
+use App\Shared\Models\Viaje;
+use Carbon\Carbon;
 
 class ArqueoService
 {
     /**
-     * Tipos de pago reconocidos (debe coincidir con el enum
-     * `tipo_pago` de las tablas ingreso y egreso).
+     * Tipos de pago reconocidos.
      *
      * @var array<int, string>
      */
@@ -30,14 +32,16 @@ class ArqueoService
     ];
 
     /**
-     * Caché en memoria de tipos de transacción resueltos dentro
-     * de la misma request. Evita repetir queries cuando un
-     * proceso registra varios movimientos en bucle.
+     * Caché en memoria de tipos de transacción resueltos.
      *
-     * @var array<string, TipoTransaccion>
+     * @var array<string, \App\Shared\Models\TipoTransaccion>
      */
     private array $tiposTransaccionCache = [];
 
+    public function __construct(
+        private readonly ChoferContextService $choferContext,
+    ) {
+    }
     // ─────────────────────────────────────────────────────────────
     // API PÚBLICA PRINCIPAL — REGISTRAR MOVIMIENTOS
     // ─────────────────────────────────────────────────────────────
@@ -299,7 +303,7 @@ class ArqueoService
 
     public function obtenerArqueoConDetalle(int $id): Arqueo
     {
-        return Arqueo::query()
+        $arqueo = Arqueo::query()
             ->with([
                 'user',
                 'ingresos' => fn($q) => $q
@@ -310,8 +314,18 @@ class ArqueoService
                     ->orderByDesc('fecha_registro'),
             ])
             ->findOrFail($id);
-    }
 
+        $idChofer = $this->choferContext->idChoferActual();
+
+        if ($idChofer !== null) {
+            $detalle = $this->detalleViajesDelChofer($idChofer);
+
+            $arqueo->setAttribute('viajes_chofer', $detalle['viajes']);
+            $arqueo->setAttribute('viajes_totales', $detalle['totales']);
+        }
+
+        return $arqueo;
+    }
     public function eliminarArqueo(Arqueo $arqueo): void
     {
         DB::transaction(function () use ($arqueo): void {
@@ -458,5 +472,276 @@ class ArqueoService
                 . implode(', ', self::TIPOS_PAGO) . '.'
             );
         }
+    }
+    // ─────────────────────────────────────────────────────────────
+    // DETALLE POR VIAJE — SOLO CHOFER
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Construye el desglose por viaje del chofer: asientos totales,
+     * vendidos por él, vendidos por otros (agrupados por usuario),
+     * pendientes, y listado de asientos.
+     *
+     * Solo considera ventas con estado `Pagada` (no `Pendiente` ni
+     * `Anulada`). No filtra por ventana del arqueo: refleja el
+     * estado ACTUAL del viaje.
+     *
+     * @return array{viajes: array<int, array<string, mixed>>, totales: array<string, mixed>}
+     */
+    private function detalleViajesDelChofer(int $idChofer): array
+    {
+        // ── Query 1: viajes donde el chofer está asignado activo ──
+        $viajes = Viaje::query()
+            ->with([
+                'vehiculoChoferRuta.ruta',
+                'vehiculoChoferRuta.asignacion.vehiculo',
+            ])
+            ->whereHas('vehiculoChoferRuta.asignacion', function ($q) use ($idChofer): void {
+                $q->where('id_chofer', $idChofer)
+                    ->where('estado', 'Activo');
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        if ($viajes->isEmpty()) {
+            return $this->estructuraVaciaDetalleViajes();
+        }
+
+        $idsViajes = $viajes->pluck('id')->all();
+
+        $idsVehiculos = $viajes
+            ->map(fn(Viaje $v) => $v->vehiculoChoferRuta?->asignacion?->id_vehiculo)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        // ── Query 2: asientos totales por vehículo ──
+        $asientosPorVehiculo = [];
+
+        if ($idsVehiculos !== []) {
+            $asientosPorVehiculo = DB::table('asiento')
+                ->join('piso', 'piso.id', '=', 'asiento.id_piso')
+                ->whereIn('piso.id_vehiculo', $idsVehiculos)
+                ->where('asiento.tipo_celda', 'pasajero')
+                ->groupBy('piso.id_vehiculo')
+                ->selectRaw('piso.id_vehiculo as id_vehiculo, COUNT(asiento.id) as total')
+                ->pluck('total', 'id_vehiculo')
+                ->all();
+        }
+
+        // ── Query 3: ventas pagadas de esos viajes ──
+        $filasVentas = DB::table('detalle_venta')
+            ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
+            ->join('asiento', 'asiento.id', '=', 'detalle_venta.id_asiento')
+            ->join('user', 'user.id', '=', 'venta.id_user')
+            ->whereIn('venta.id_viaje', $idsViajes)
+            ->where('venta.estado', 'Pagada')
+            ->whereNull('venta.deleted_at')
+            ->select([
+                'venta.id_viaje as id_viaje',
+                'venta.id as id_venta',
+                'venta.id_user as id_user',
+                'venta.estado as estado_venta',
+                'venta.created_at as fecha_venta',
+                'detalle_venta.id as id_detalle_venta',
+                'detalle_venta.precio_unitario as precio_unitario',
+                'asiento.numero_asiento as numero_asiento',
+                'asiento.fila as fila',
+                'asiento.columna as columna',
+                'user.usuario as usuario',
+                'user.nombres as nombres',
+                'user.primer_apellido as primer_apellido',
+                'user.segundo_apellido as segundo_apellido',
+            ])
+            ->orderBy('venta.id_viaje')
+            ->orderBy('venta.id_user')
+            ->orderBy('detalle_venta.id')
+            ->get()
+            ->all();
+
+        // Agrupar en memoria: id_viaje → filas.
+        $ventasPorViaje = [];
+
+        foreach ($filasVentas as $fila) {
+            $ventasPorViaje[(int) $fila->id_viaje][] = $fila;
+        }
+
+        // ── Armar resultado ──
+        $resultado = [];
+
+        $acc = [
+            'viajes' => 0,
+            'asientos_totales' => 0,
+            'vendidos_por_mi' => 0,
+            'vendidos_por_otros' => 0,
+            'pendientes' => 0,
+            'ingreso_por_mi' => 0.0,
+            'ingreso_por_otros' => 0.0,
+        ];
+
+        foreach ($viajes as $viaje) {
+            $vcr = $viaje->vehiculoChoferRuta;
+            $ruta = $vcr?->ruta;
+            $asignacion = $vcr?->asignacion;
+            $vehiculo = $asignacion?->vehiculo;
+            $idVehiculo = $asignacion?->id_vehiculo;
+
+            $asientosTotales = (int) ($asientosPorVehiculo[$idVehiculo] ?? 0);
+
+            $filasDelViaje = $ventasPorViaje[(int) $viaje->id] ?? [];
+
+            $misVentas = [];
+            $otrasPorUsuario = [];
+
+            foreach ($filasDelViaje as $fila) {
+                if ((int) $fila->id_user === $idChofer) {
+                    $misVentas[] = $fila;
+                    continue;
+                }
+
+                $idUser = (int) $fila->id_user;
+
+                if (!isset($otrasPorUsuario[$idUser])) {
+                    $otrasPorUsuario[$idUser] = [
+                        'id_user' => $idUser,
+                        'usuario' => (string) $fila->usuario,
+                        'nombre_completo' => trim(implode(' ', array_filter([
+                            $fila->nombres,
+                            $fila->primer_apellido,
+                            $fila->segundo_apellido,
+                        ]))),
+                        'total' => 0.0,
+                        'asientos' => [],
+                    ];
+                }
+
+                $otrasPorUsuario[$idUser]['asientos'][] = $fila;
+                $otrasPorUsuario[$idUser]['total'] += (float) $fila->precio_unitario;
+            }
+
+            $vendidosPorMi = count($misVentas);
+            $vendidosPorOtros = array_sum(array_map(
+                static fn(array $g): int => count($g['asientos']),
+                $otrasPorUsuario
+            ));
+
+            $pendientes = max(0, $asientosTotales - $vendidosPorMi - $vendidosPorOtros);
+
+            $totalPorMi = array_sum(array_map(
+                static fn(object $f): float => (float) $f->precio_unitario,
+                $misVentas
+            ));
+
+            $totalPorOtros = array_sum(array_map(
+                static fn(array $g): float => (float) $g['total'],
+                $otrasPorUsuario
+            ));
+
+            $resultado[] = [
+                'id_viaje' => (int) $viaje->id,
+                'estado_viaje' => $viaje->estado,
+                'ruta' => $ruta ? [
+                    'origen' => $ruta->origen,
+                    'destino' => $ruta->destino,
+                ] : null,
+                'vehiculo' => $vehiculo ? [
+                    'placa' => $vehiculo->placa,
+                    'tipo' => $vehiculo->tipo,
+                ] : null,
+                'asientos' => [
+                    'totales' => $asientosTotales,
+                    'vendidos_por_mi' => $vendidosPorMi,
+                    'vendidos_por_otros' => $vendidosPorOtros,
+                    'pendientes' => $pendientes,
+                ],
+                'mis_ingresos' => [
+                    'total' => number_format($totalPorMi, 2, '.', ''),
+                    'asientos' => array_map(
+                        fn(object $f): array => $this->formatearVentaArqueo($f),
+                        $misVentas
+                    ),
+                ],
+                'ingresos_de_otros' => array_values(array_map(
+                    fn(array $g): array => [
+                        'id_user' => $g['id_user'],
+                        'usuario' => $g['usuario'],
+                        'nombre_completo' => $g['nombre_completo'],
+                        'total' => number_format($g['total'], 2, '.', ''),
+                        'asientos' => array_map(
+                            fn(object $f): array => $this->formatearVentaArqueo($f),
+                            $g['asientos']
+                        ),
+                    ],
+                    $otrasPorUsuario
+                )),
+            ];
+
+            $acc['viajes']++;
+            $acc['asientos_totales'] += $asientosTotales;
+            $acc['vendidos_por_mi'] += $vendidosPorMi;
+            $acc['vendidos_por_otros'] += $vendidosPorOtros;
+            $acc['pendientes'] += $pendientes;
+            $acc['ingreso_por_mi'] += $totalPorMi;
+            $acc['ingreso_por_otros'] += $totalPorOtros;
+        }
+
+        return [
+            'viajes' => $resultado,
+            'totales' => [
+                'viajes' => $acc['viajes'],
+                'asientos_totales' => $acc['asientos_totales'],
+                'vendidos_por_mi' => $acc['vendidos_por_mi'],
+                'vendidos_por_otros' => $acc['vendidos_por_otros'],
+                'pendientes' => $acc['pendientes'],
+                'ingreso_por_mi' => number_format($acc['ingreso_por_mi'], 2, '.', ''),
+                'ingreso_por_otros' => number_format($acc['ingreso_por_otros'], 2, '.', ''),
+            ],
+        ];
+    }
+
+    /**
+     * Formatea una fila cruda de `detalle_venta + venta + asiento + user`
+     * al shape que consume el front.
+     *
+     * @return array<string, mixed>
+     */
+    private function formatearVentaArqueo(object $fila): array
+    {
+        return [
+            'id_venta' => (int) $fila->id_venta,
+            'id_detalle_venta' => (int) $fila->id_detalle_venta,
+            'numero_asiento' => $fila->numero_asiento !== null
+                ? (int) $fila->numero_asiento
+                : null,
+            'fila' => (int) $fila->fila,
+            'columna' => (int) $fila->columna,
+            'monto' => number_format((float) $fila->precio_unitario, 2, '.', ''),
+            'fecha' => $fila->fecha_venta !== null
+                ? Carbon::parse($fila->fecha_venta)->toIso8601String()
+                : null,
+            'estado_venta' => (string) $fila->estado_venta,
+        ];
+    }
+
+    /**
+     * Estructura vacía para choferes sin viajes activos.
+     *
+     * @return array{viajes: array<int, mixed>, totales: array<string, mixed>}
+     */
+    private function estructuraVaciaDetalleViajes(): array
+    {
+        return [
+            'viajes' => [],
+            'totales' => [
+                'viajes' => 0,
+                'asientos_totales' => 0,
+                'vendidos_por_mi' => 0,
+                'vendidos_por_otros' => 0,
+                'pendientes' => 0,
+                'ingreso_por_mi' => '0.00',
+                'ingreso_por_otros' => '0.00',
+            ],
+        ];
     }
 }

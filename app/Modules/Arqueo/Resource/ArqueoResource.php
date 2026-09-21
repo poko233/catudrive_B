@@ -12,7 +12,7 @@ class ArqueoResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->id,
             'id_user' => $this->id_user,
             'fecha_apertura' => $this->fecha_apertura?->toIso8601String(),
@@ -45,5 +45,16 @@ class ArqueoResource extends JsonResource
             'ingresos' => IngresoResource::collection($this->whenLoaded('ingresos')),
             'egresos' => EgresoResource::collection($this->whenLoaded('egresos')),
         ];
+
+        // Desglose por viaje: SOLO presente cuando el arqueo se cargó
+        // vía `obtenerArqueoConDetalle()` y el usuario es chofer.
+        $viajes = $this->resource->getAttribute('viajes_chofer');
+
+        if ($viajes !== null) {
+            $data['viajes'] = $viajes;
+            $data['viajes_totales'] = $this->resource->getAttribute('viajes_totales');
+        }
+
+        return $data;
     }
 }

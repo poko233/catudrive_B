@@ -47,17 +47,13 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
         Route::get('/', [ArqueoController::class, 'index'])
             ->middleware('permiso:Arqueo,Arqueo,Ver');
 
-        Route::get('/abierto', [ArqueoController::class, 'abierto'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/abierto', [ArqueoController::class, 'abierto']);
 
-        Route::post('/abrir', [ArqueoController::class, 'abrir'])
-            ->middleware('permiso:Arqueo,Arqueo,Crear');
+        Route::post('/abrir', [ArqueoController::class, 'abrir']);
 
-        Route::get('/{arqueo}', [ArqueoController::class, 'show'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/{arqueo}', [ArqueoController::class, 'show']);
 
-        Route::patch('/{arqueo}/cerrar', [ArqueoController::class, 'cerrar'])
-            ->middleware('permiso:Arqueo,Arqueo,Editar');
+        Route::patch('/{arqueo}/cerrar', [ArqueoController::class, 'cerrar']);
 
         Route::delete('/{arqueo}', [ArqueoController::class, 'destroy'])
             ->middleware('permiso:Arqueo,Arqueo,Eliminar');
@@ -70,20 +66,15 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
     */
 
     Route::prefix('ingresos')->group(function (): void {
-        Route::get('/', [IngresoController::class, 'index'])
-            ->middleware('permiso:Arqueo,Ingreso,Ver');
+        Route::get('/', [IngresoController::class, 'index']);
 
-        Route::post('/', [IngresoController::class, 'store'])
-            ->middleware('permiso:Arqueo,Ingreso,Crear');
+        Route::post('/', [IngresoController::class, 'store']);
 
-        Route::get('/{ingreso}', [IngresoController::class, 'show'])
-            ->middleware('permiso:Arqueo,Ingreso,Ver');
+        Route::get('/{ingreso}', [IngresoController::class, 'show']);
 
-        Route::post('/{ingreso}/anular', [IngresoController::class, 'anular'])
-            ->middleware('permiso:Arqueo,Ingreso,Editar');
+        Route::post('/{ingreso}/anular', [IngresoController::class, 'anular']);
 
-        Route::get('/{ingreso}/comprobante', [IngresoController::class, 'comprobante'])
-            ->middleware('permiso:Arqueo,Ingreso,Ver');
+        Route::get('/{ingreso}/comprobante', [IngresoController::class, 'comprobante']);
     });
 
     /*
