@@ -156,6 +156,23 @@ Route::prefix(
 
             /*
             |--------------------------------------------------------------------------
+            | CAMBIAR ESTADO LOGÍSTICO
+            |--------------------------------------------------------------------------
+            */
+
+            Route::put(
+                '/{encomienda}/estado',
+                [EncomiendaController::class, 'cambiarEstado']
+            )
+                ->whereNumber('encomienda')
+                ->middleware([
+                    'permiso:Encomiendas,Encomiendas,Editar',
+                    'throttle:write',
+                ])
+                ->name('encomiendas.estado');
+
+            /*
+            |--------------------------------------------------------------------------
             | ENTREGAR
             |--------------------------------------------------------------------------
             */
