@@ -144,6 +144,11 @@ class DatabaseSeeder extends Seeder
                 'descripcion' => null,
                 'orden' => 9,
             ],
+            'Arqueo' => [
+                'icono' => 'calculator',
+                'descripcion' => 'Gestión de arqueos de caja, ingresos y egresos',
+                'orden' => 10,
+            ],
         ];
 
         foreach ($modulos as $nombre => $data) {
@@ -197,6 +202,7 @@ class DatabaseSeeder extends Seeder
             'Reportes Vent.' => ['ruta' => '/ventas-reportes', 'descripcion' => null, 'modulo' => 'Ventas'],
             'Reportes Chof.' => ['ruta' => '/choferes-reportes', 'descripcion' => null, 'modulo' => 'Choferes'],
             'Reportes Asig.' => ['ruta' => '/asignaciones-reportes', 'descripcion' => null, 'modulo' => 'Asignaciones'],
+            'Arqueo' => ['ruta' => '/arqueo', 'descripcion' => 'Gestión de arqueos de caja', 'modulo' => 'Arqueo'],
         ];
 
         foreach ($formularios as $nombre => $data) {
@@ -245,7 +251,7 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         $planModuloRol = [
             'Superadmin' => '*',
-            'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos'],
+            'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos' . 'Arqueo'],
             'Usuario' => ['Inicio'],
             'Chofer' => ['Ventas', 'Encomiendas'],
         ];
@@ -305,7 +311,7 @@ class DatabaseSeeder extends Seeder
                 'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
             ],
             'Administrador' => [
-                'modulos' => ['Inicio', 'Configuracion', 'Vehiculos'],
+                'modulos' => ['Inicio', 'Configuracion', 'Vehiculos', 'Arqueo'],
                 'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
             ],
             'Usuario' => [
