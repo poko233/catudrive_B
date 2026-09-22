@@ -59,6 +59,15 @@ class EncomiendaService
         return $this->queryViajesPermitidos()->findOrFail($id);
     }
 
+    private function estadoEncomiendaSegunViaje(Viaje $viaje): string
+    {
+        return match ($viaje->estado) {
+            'En curso' => 'En tránsito',
+            'Finalizado' => 'En destino',
+            default => 'En origen',
+        };
+    }
+
     public function listar(array $f = [], int $per = 15): LengthAwarePaginator
     {
         $q = $this->queryBase();
@@ -135,7 +144,7 @@ class EncomiendaService
             if ($idUser <= 0)
                 throw ValidationException::withMessages(['usuario' => 'No se pudo identificar al usuario que registra la encomienda.']);
             [$sub, $desc, $total] = $this->importes($data['detalles'], (float) ($data['descuento'] ?? 0));
-            $e = Encomienda::query()->create(['guia' => null, 'qr_token' => Str::random(64), 'id_remitente' => (int) $data['id_remitente'], 'id_destinatario' => (int) $data['id_destinatario'], 'id_user_registro' => $idUser, 'concepto' => $data['concepto'] ?? null, 'subtotal' => $sub, 'descuento' => $desc, 'total' => $total, 'lugar_pago' => $data['lugar_pago'], 'estado_pago' => $data['estado_pago'], 'tipo_pago' => $data['estado_pago'] === 'Pagado' ? ($data['tipo_pago'] ?? null) : null, 'estado' => 'En origen']);
+            $e = Encomienda::query()->create(['guia' => null, 'qr_token' => Str::random(64), 'id_remitente' => (int) $data['id_remitente'], 'id_destinatario' => (int) $data['id_destinatario'], 'id_user_registro' => $idUser, 'concepto' => $data['concepto'] ?? null, 'subtotal' => $sub, 'descuento' => $desc, 'total' => $total, 'lugar_pago' => $data['lugar_pago'], 'estado_pago' => $data['estado_pago'], 'tipo_pago' => $data['estado_pago'] === 'Pagado' ? ($data['tipo_pago'] ?? null) : null, 'estado' => $this->estadoEncomiendaSegunViaje($v)]);
             $e->guia = $this->generarGuia((int) $e->id);
             $e->save();
             foreach ($data['detalles'] as $d)
@@ -214,6 +223,10 @@ class EncomiendaService
                 $ve->save();
             } else
                 ViajeEncomienda::query()->create(['id_viaje' => $v->id, 'id_encomienda' => $id]);
+
+            $e->estado = $this->estadoEncomiendaSegunViaje($v);
+            $e->save();
+
             return $this->obtener($id);
         });
     }

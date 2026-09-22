@@ -7,6 +7,7 @@ namespace App\Modules\Pasaje\Services;
 use App\Modules\Arqueo\Services\ArqueoService;
 use App\Shared\Models\AsignacionVehiculoChofer;
 use App\Shared\Models\DetalleVenta;
+use App\Shared\Models\Encomienda;
 use App\Shared\Models\Ingreso;
 use App\Shared\Models\Pasajero;
 use App\Shared\Models\Ruta;
@@ -26,21 +27,9 @@ class VentaService
     |--------------------------------------------------------------------------
     | INTERVALO ENTRE VIAJES
     |--------------------------------------------------------------------------
-    |
-    | Ruta:
-    |
-    | 06:00
-    | ↓
-    | 06:30
-    | ↓
-    | 07:00
-    | ↓
-    | 07:30
-    |
     */
 
-    private const INTERVALO_VIAJE_MINUTOS =
-        30;
+    private const INTERVALO_VIAJE_MINUTOS = 30;
 
     public function __construct(
         private readonly QrService $qrService,
@@ -56,25 +45,20 @@ class VentaService
     private function validarPropietarioViaje(
         Viaje $viaje
     ): void {
-        $idChofer =
-            $this->choferContext
-                ->idChoferActual();
+        $idChofer = $this->choferContext
+            ->idChoferActual();
 
-        if (
-            $idChofer === null
-        ) {
+        if ($idChofer === null) {
             return;
         }
 
-        $idChoferDelViaje =
-            $viaje
-                ->vehiculoChoferRuta
-                ?->asignacion
-                ?->id_chofer;
+        $idChoferDelViaje = $viaje
+            ->vehiculoChoferRuta
+            ?->asignacion
+            ?->id_chofer;
 
         if (
-            (int)
-            $idChoferDelViaje !==
+            (int) $idChoferDelViaje !==
             $idChofer
         ) {
             throw new AccessDeniedHttpException(
@@ -86,26 +70,21 @@ class VentaService
     private function validarPropietarioVenta(
         Venta $venta
     ): void {
-        $idChofer =
-            $this->choferContext
-                ->idChoferActual();
+        $idChofer = $this->choferContext
+            ->idChoferActual();
 
-        if (
-            $idChofer === null
-        ) {
+        if ($idChofer === null) {
             return;
         }
 
-        $idChoferDelViaje =
-            $venta
-                ->viaje
-                ?->vehiculoChoferRuta
-                ?->asignacion
-                ?->id_chofer;
+        $idChoferDelViaje = $venta
+            ->viaje
+            ?->vehiculoChoferRuta
+            ?->asignacion
+            ?->id_chofer;
 
         if (
-            (int)
-            $idChoferDelViaje !==
+            (int) $idChoferDelViaje !==
             $idChofer
         ) {
             throw new AccessDeniedHttpException(
@@ -122,32 +101,28 @@ class VentaService
         array $filtros,
         int $perPage = 15
     ) {
-        $idChofer =
-            $this->choferContext
-                ->idChoferActual();
+        $idChofer = $this->choferContext
+            ->idChoferActual();
 
-        $query =
-            Viaje::query()
-                ->with([
-                    'vehiculoChoferRuta.ruta',
-                    'vehiculoChoferRuta.asignacion.vehiculo',
-                    'vehiculoChoferRuta.asignacion.chofer.usuario',
-                ])
-                ->orderByRaw(
-                    "CASE estado
-                        WHEN 'Vendiendo' THEN 0
-                        WHEN 'En curso' THEN 1
-                        ELSE 2
-                    END"
-                )
-                ->orderBy(
-                    'created_at',
-                    'desc'
-                );
+        $query = Viaje::query()
+            ->with([
+                'vehiculoChoferRuta.ruta',
+                'vehiculoChoferRuta.asignacion.vehiculo',
+                'vehiculoChoferRuta.asignacion.chofer.usuario',
+            ])
+            ->orderByRaw(
+                "CASE estado
+                    WHEN 'Vendiendo' THEN 0
+                    WHEN 'En curso' THEN 1
+                    ELSE 2
+                END"
+            )
+            ->orderBy(
+                'created_at',
+                'desc'
+            );
 
-        if (
-            $idChofer !== null
-        ) {
+        if ($idChofer !== null) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
                 fn($q) =>
@@ -158,13 +133,7 @@ class VentaService
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'origen'
-                ]
-            )
-        ) {
+        if (!empty($filtros['origen'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
                 fn($q) =>
@@ -172,21 +141,13 @@ class VentaService
                         'origen',
                         'like',
                         '%' .
-                        $filtros[
-                            'origen'
-                        ] .
+                        $filtros['origen'] .
                         '%'
                     )
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'destino'
-                ]
-            )
-        ) {
+        if (!empty($filtros['destino'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
                 fn($q) =>
@@ -194,82 +155,48 @@ class VentaService
                         'destino',
                         'like',
                         '%' .
-                        $filtros[
-                            'destino'
-                        ] .
+                        $filtros['destino'] .
                         '%'
                     )
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'fecha'
-                ]
-            )
-        ) {
+        if (!empty($filtros['fecha'])) {
             $query->whereHas(
                 'vehiculoChoferRuta',
                 fn($q) =>
                     $q->whereDate(
                         'hora_inicio',
-                        $filtros[
-                            'fecha'
-                        ]
+                        $filtros['fecha']
                     )
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'estado'
-                ]
-            )
-        ) {
+        if (!empty($filtros['estado'])) {
             $query->where(
                 'estado',
-                $filtros[
-                    'estado'
-                ]
+                $filtros['estado']
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'vehiculo_id'
-                ]
-            )
-        ) {
+        if (!empty($filtros['vehiculo_id'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
                 fn($q) =>
                     $q->where(
                         'id_vehiculo',
-                        $filtros[
-                            'vehiculo_id'
-                        ]
+                        $filtros['vehiculo_id']
                     )
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'chofer_id'
-                ]
-            )
-        ) {
+        if (!empty($filtros['chofer_id'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
                 fn($q) =>
                     $q->where(
                         'id_chofer',
-                        $filtros[
-                            'chofer_id'
-                        ]
+                        $filtros['chofer_id']
                     )
             );
         }
@@ -288,20 +215,17 @@ class VentaService
     public function obtenerProximaHoraRuta(
         int $idRuta
     ): array {
-        $ruta =
-            Ruta::query()
-                ->findOrFail(
-                    $idRuta
-                );
+        $ruta = Ruta::query()
+            ->findOrFail(
+                $idRuta
+            );
 
         if (
             mb_strtolower(
                 trim(
-                    (string)
-                    $ruta->estado
+                    (string) $ruta->estado
                 )
-            ) !==
-            'activa'
+            ) !== 'activa'
         ) {
             throw new RuntimeException(
                 'La ruta seleccionada no está activa.'
@@ -315,26 +239,19 @@ class VentaService
 
         return [
             'id_ruta' =>
-                (int)
-                $ruta->id,
+                (int) $ruta->id,
 
             'fecha' =>
                 $proximaHora
-                    ->format(
-                        'Y-m-d'
-                    ),
+                    ->format('Y-m-d'),
 
             'hora' =>
                 $proximaHora
-                    ->format(
-                        'H:i'
-                    ),
+                    ->format('H:i'),
 
             'fecha_hora' =>
                 $proximaHora
-                    ->format(
-                        'Y-m-d H:i:s'
-                    ),
+                    ->format('Y-m-d H:i:s'),
 
             'intervalo_minutos' =>
                 self::INTERVALO_VIAJE_MINUTOS,
@@ -344,28 +261,6 @@ class VentaService
     /*
     |--------------------------------------------------------------------------
     | CREAR VIAJE PROGRAMADO
-    |--------------------------------------------------------------------------
-    |
-    | Este es el NUEVO flujo.
-    |
-    | Recibe:
-    |
-    | id_asignacion_vehiculo_chofer
-    | id_ruta
-    |
-    | Ejemplo:
-    |
-    | Ruta inicia a las 06:00
-    |
-    | Primer viaje:
-    | 06:00
-    |
-    | Segundo:
-    | 06:30
-    |
-    | Tercero:
-    | 07:00
-    |
     |--------------------------------------------------------------------------
     */
 
@@ -378,48 +273,23 @@ class VentaService
                 $idAsignacion,
                 $idRuta
             ): Viaje {
-                /*
-                |--------------------------------------------------------------------------
-                | BLOQUEAMOS LA RUTA
-                |--------------------------------------------------------------------------
-                |
-                | Esto es importante porque evita que dos computadoras
-                | creen simultáneamente:
-                |
-                | Viaje 1 → 06:30
-                | Viaje 2 → 06:30
-                |
-                | La segunda petición esperará a la primera y después
-                | calculará 07:00.
-                |
-                */
-
-                $ruta =
-                    Ruta::query()
-                        ->lockForUpdate()
-                        ->findOrFail(
-                            $idRuta
-                        );
+                $ruta = Ruta::query()
+                    ->lockForUpdate()
+                    ->findOrFail(
+                        $idRuta
+                    );
 
                 if (
                     mb_strtolower(
                         trim(
-                            (string)
-                            $ruta->estado
+                            (string) $ruta->estado
                         )
-                    ) !==
-                    'activa'
+                    ) !== 'activa'
                 ) {
                     throw new RuntimeException(
                         'La ruta seleccionada no está activa.'
                     );
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | ASIGNACIÓN VEHÍCULO - CHOFER
-                |--------------------------------------------------------------------------
-                */
 
                 $asignacion =
                     AsignacionVehiculoChofer::query()
@@ -434,19 +304,12 @@ class VentaService
                             (string)
                             $asignacion->estado
                         )
-                    ) !==
-                    'activo'
+                    ) !== 'activo'
                 ) {
                     throw new RuntimeException(
                         'La asignación vehículo-chofer seleccionada no está activa.'
                     );
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | SEGURIDAD PARA USUARIO CHOFER
-                |--------------------------------------------------------------------------
-                */
 
                 $this->choferContext
                     ->validarPertenece(
@@ -455,29 +318,10 @@ class VentaService
                             ->id_chofer
                     );
 
-                /*
-                |--------------------------------------------------------------------------
-                | CALCULAR HORA REAL
-                |--------------------------------------------------------------------------
-                |
-                | Aunque el frontend ya mostró una hora,
-                | volvemos a calcular aquí.
-                |
-                | Eso evita errores si otro usuario creó
-                | un viaje mientras el modal estaba abierto.
-                |
-                */
-
                 $proximaHora =
                     $this->calcularProximaHoraRuta(
                         $ruta
                     );
-
-                /*
-                |--------------------------------------------------------------------------
-                | CREAR RELACIÓN VEHÍCULO - CHOFER - RUTA
-                |--------------------------------------------------------------------------
-                */
 
                 $vehiculoChoferRuta =
                     VehiculoChoferRuta::query()
@@ -497,38 +341,19 @@ class VentaService
                             ]
                         );
 
-                /*
-                |--------------------------------------------------------------------------
-                | PROTECCIÓN
-                |--------------------------------------------------------------------------
-                |
-                | Si por algún dato antiguo esa relación ya tenía
-                | un viaje, no creamos otro viaje duplicado.
-                |
-                */
-
                 $viajeExistente =
                     Viaje::query()
                         ->where(
                             'id_vehiculo_chofer_ruta',
-                            $vehiculoChoferRuta
-                                ->id
+                            $vehiculoChoferRuta->id
                         )
                         ->exists();
 
-                if (
-                    $viajeExistente
-                ) {
+                if ($viajeExistente) {
                     throw new RuntimeException(
                         'Ya existe un viaje para la hora calculada. Actualiza la pantalla e inténtalo nuevamente.'
                     );
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | CREAR VIAJE
-                |--------------------------------------------------------------------------
-                */
 
                 $viaje =
                     Viaje::query()
@@ -540,12 +365,6 @@ class VentaService
                             'estado' =>
                                 'Vendiendo',
                         ]);
-
-                /*
-                |--------------------------------------------------------------------------
-                | CARGAR INFORMACIÓN PARA ViajeResource
-                |--------------------------------------------------------------------------
-                */
 
                 return $viaje
                     ->load([
@@ -567,36 +386,17 @@ class VentaService
     private function calcularProximaHoraRuta(
         Ruta $ruta
     ): Carbon {
-        /*
-        |--------------------------------------------------------------------------
-        | HORA BASE
-        |--------------------------------------------------------------------------
-        */
-
         $horaBase =
             trim(
                 (string)
                 $ruta->hora_inicio
             );
 
-        if (
-            $horaBase === ''
-        ) {
+        if ($horaBase === '') {
             throw new RuntimeException(
                 'La ruta seleccionada no tiene una hora de inicio configurada.'
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FECHA BASE
-        |--------------------------------------------------------------------------
-        |
-        | Si la ruta tiene fecha_inicio usamos esa fecha.
-        |
-        | Si por algún dato antiguo no tiene fecha, usamos hoy.
-        |
-        */
 
         $fechaBase =
             $ruta->fecha_inicio
@@ -614,19 +414,6 @@ class VentaService
                 ' ' .
                 $horaBase
             );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ÚLTIMO VIAJE REAL DE LA MISMA RUTA
-        |--------------------------------------------------------------------------
-        |
-        | Importante:
-        |
-        | buscamos VIAJES reales.
-        |
-        | No contamos relaciones antiguas que no tengan viaje.
-        |
-        */
 
         $ultimaHora =
             DB::table(
@@ -649,23 +436,9 @@ class VentaService
                     'vcr.hora_inicio'
                 );
 
-        /*
-        |--------------------------------------------------------------------------
-        | PRIMER VIAJE
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !$ultimaHora
-        ) {
+        if (!$ultimaHora) {
             return $inicioRuta;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SIGUIENTE VIAJE
-        |--------------------------------------------------------------------------
-        */
 
         $proximaHora =
             Carbon::parse(
@@ -675,16 +448,6 @@ class VentaService
                 ->addMinutes(
                     self::INTERVALO_VIAJE_MINUTOS
                 );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEGURIDAD
-        |--------------------------------------------------------------------------
-        |
-        | Nunca devolver una hora anterior a la hora configurada
-        | originalmente en la ruta.
-        |
-        */
 
         if (
             $proximaHora->lt(
@@ -701,9 +464,6 @@ class VentaService
     |--------------------------------------------------------------------------
     | CREAR VIAJE LEGACY
     |--------------------------------------------------------------------------
-    |
-    | Se conserva temporalmente para no romper versiones antiguas.
-    |
     */
 
     public function crearViaje(
@@ -745,6 +505,80 @@ class VentaService
 
     /*
     |--------------------------------------------------------------------------
+    | SINCRONIZAR ESTADO DE ENCOMIENDAS
+    |--------------------------------------------------------------------------
+    |
+    | Viaje             Encomienda
+    |
+    | En curso       -> En tránsito
+    | Finalizado     -> En destino
+    |
+    | Vendiendo:
+    | No es necesario modificar porque las encomiendas nuevas
+    | comienzan en "En origen".
+    |
+    | Cancelado:
+    | No modifica automáticamente las encomiendas.
+    |
+    | IMPORTANTE:
+    | Nunca modifica encomiendas Entregadas o Anuladas.
+    |
+    */
+
+    private function sincronizarEstadoEncomiendas(
+        Viaje $viaje,
+        string $estadoViaje
+    ): void {
+        $estadoEncomienda =
+            match ($estadoViaje) {
+                'En curso' =>
+                    'En tránsito',
+
+                'Finalizado' =>
+                    'En destino',
+
+                default =>
+                    null,
+            };
+
+        if ($estadoEncomienda === null) {
+            return;
+        }
+
+        Encomienda::query()
+            ->whereIn(
+                'id',
+                function ($query) use (
+                    $viaje
+                ): void {
+                    $query
+                        ->select(
+                            'id_encomienda'
+                        )
+                        ->from(
+                            'viaje_encomienda'
+                        )
+                        ->where(
+                            'id_viaje',
+                            $viaje->id
+                        );
+                }
+            )
+            ->whereNotIn(
+                'estado',
+                [
+                    'Entregada',
+                    'Anulada',
+                ]
+            )
+            ->update([
+                'estado' =>
+                    $estadoEncomienda,
+            ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | CAMBIAR ESTADO DEL VIAJE
     |--------------------------------------------------------------------------
     */
@@ -753,20 +587,44 @@ class VentaService
         Viaje $viaje,
         string $estado
     ): Viaje {
-        $viaje->loadMissing(
-            'vehiculoChoferRuta.asignacion'
+        return DB::transaction(
+            function () use (
+                $viaje,
+                $estado
+            ): Viaje {
+                $viaje->loadMissing(
+                    'vehiculoChoferRuta.asignacion'
+                );
+
+                $this->validarPropietarioViaje(
+                    $viaje
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | ACTUALIZAR VIAJE
+                |--------------------------------------------------------------------------
+                */
+
+                $viaje->update([
+                    'estado' =>
+                        $estado,
+                ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | SINCRONIZAR ENCOMIENDAS DEL VIAJE
+                |--------------------------------------------------------------------------
+                */
+
+                $this->sincronizarEstadoEncomiendas(
+                    $viaje,
+                    $estado
+                );
+
+                return $viaje->fresh();
+            }
         );
-
-        $this->validarPropietarioViaje(
-            $viaje
-        );
-
-        $viaje->update([
-            'estado' =>
-                $estado,
-        ]);
-
-        return $viaje->fresh();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -826,8 +684,7 @@ class VentaService
                 )
                 ->get();
 
-        $ocupaciones =
-            [];
+        $ocupaciones = [];
 
         foreach (
             $detallesActivos
@@ -850,8 +707,7 @@ class VentaService
             ];
         }
 
-        $resultado =
-            [];
+        $resultado = [];
 
         foreach (
             $vehiculo->pisos
@@ -878,11 +734,8 @@ class VentaService
                 $estadoOcupacion =
                     'libre';
 
-                $idVenta =
-                    null;
-
-                $idDetalleVenta =
-                    null;
+                $idVenta = null;
+                $idDetalleVenta = null;
 
                 if (
                     $asiento->tipo_celda !==
@@ -1035,9 +888,7 @@ class VentaService
                             )
                             ->exists();
 
-                    if (
-                        $ocupado
-                    ) {
+                    if ($ocupado) {
                         throw new RuntimeException(
                             "El asiento {$asientoId} ya está ocupado."
                         );
@@ -1060,8 +911,7 @@ class VentaService
                                 0,
                         ]);
 
-                $precioTotal =
-                    0;
+                $precioTotal = 0;
 
                 foreach (
                     $asientos
@@ -1102,9 +952,6 @@ class VentaService
         );
     }
 
-    /**
-     * Asigna o actualiza un pasajero en un detalle de venta.
-     */
     public function asignarPasajero(
         int $detalleId,
         array $datosPasajero
@@ -1181,9 +1028,6 @@ class VentaService
             );
         }
 
-        /*
-         * Normaliza ANTES de la transacción.
-         */
         $tipoPago =
             $this->normalizarFormaPago(
                 $formaPago
@@ -1314,26 +1158,18 @@ class VentaService
                             ),
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | REGISTRO DEL INGRESO EN CAJA
-                |--------------------------------------------------------------------------
-                */
-
                 $this->arqueoService
                     ->registrarIngreso(
                         idUser:
                             (int)
-                            $venta
-                                ->id_user,
+                            $venta->id_user,
 
                         tipoTransaccion:
                             'VPASAJE',
 
                         monto:
                             (float)
-                            $venta
-                                ->precio_total,
+                            $venta->precio_total,
 
                         tipoPago:
                             $tipoPago,
@@ -1429,9 +1265,6 @@ class VentaService
             function () use (
                 $venta
             ) {
-                /*
-                 * Anular el ingreso asociado.
-                 */
                 $this
                     ->anularIngresoDeVenta(
                         $venta
@@ -1491,10 +1324,7 @@ class VentaService
                         ->detalles()
                         ->count();
 
-                if (
-                    $restantes ===
-                    0
-                ) {
+                if ($restantes === 0) {
                     $venta->update([
                         'estado' =>
                             'Anulada',
@@ -1577,9 +1407,7 @@ class VentaService
                 )
                 ->exists();
 
-        if (
-            $ocupado
-        ) {
+        if ($ocupado) {
             throw new RuntimeException(
                 'El asiento seleccionado ya está ocupado.'
             );
@@ -1662,9 +1490,6 @@ class VentaService
     // INTEGRACIÓN CON ARQUEO
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Detalle canónico del ingreso asociado a una venta.
-     */
     private function construirDetalleIngreso(
         Venta $venta
     ): string {
@@ -1675,9 +1500,6 @@ class VentaService
         );
     }
 
-    /**
-     * Anula el ingreso válido asociado a la venta.
-     */
     private function anularIngresoDeVenta(
         Venta $venta
     ): void {
@@ -1702,9 +1524,7 @@ class VentaService
                 )
                 ->first();
 
-        if (
-            !$ingreso
-        ) {
+        if (!$ingreso) {
             return;
         }
 
@@ -1714,9 +1534,6 @@ class VentaService
             );
     }
 
-    /**
-     * Normaliza forma de pago al enum del módulo de arqueo.
-     */
     private function normalizarFormaPago(
         string $formaPago
     ): string {
