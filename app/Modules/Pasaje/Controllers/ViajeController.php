@@ -14,6 +14,7 @@ use App\Shared\Security\SecurityResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class ViajeController
@@ -23,36 +24,220 @@ class ViajeController
     ) {
     }
 
-    public function index(ListarViajesRequest $request): AnonymousResourceCollection
-    {
-        return ViajeResource::collection($this->ventaService->listarViajes(
-            $request->validated(),
-            (int) $request->input('per_page', 15)
-        ));
+    /*
+    |--------------------------------------------------------------------------
+    | LISTAR VIAJES
+    |--------------------------------------------------------------------------
+    */
+
+    public function index(
+        ListarViajesRequest $request
+    ): AnonymousResourceCollection {
+        return ViajeResource::collection(
+            $this->ventaService->listarViajes(
+                $request->validated(),
+                (int) $request->input(
+                    'per_page',
+                    15
+                )
+            )
+        );
     }
 
-    public function store(CrearViajeRequest $request): JsonResponse|ViajeResource
-    {
+    /*
+    |--------------------------------------------------------------------------
+    | PRÓXIMA HORA DISPONIBLE DE UNA RUTA
+    |--------------------------------------------------------------------------
+    |
+    | Ejemplo:
+    |
+    | Ruta inicia 06:00
+    |
+    | No hay viajes:
+    | → 06:00
+    |
+    | Existe 06:00:
+    | → 06:30
+    |
+    | Existe 06:30:
+    | → 07:00
+    |
+    */
+
+    public function proximaHora(
+        int $ruta
+    ): JsonResponse {
         try {
-            return new ViajeResource($this->ventaService->crearViaje(
-                (int) $request->validated()['id_vehiculo_chofer_ruta']
-            ));
-        } catch (AccessDeniedHttpException $e) {
-            return SecurityResponse::forbidden($e->getMessage());
-        } catch (ModelNotFoundException) {
-            return response()->json(['success' => false, 'message' => 'Asignación no encontrada.', 'code' => 'NOT_FOUND'], 404);
+            return response()->json([
+                'data' =>
+                    $this->ventaService
+                        ->obtenerProximaHoraRuta(
+                            $ruta
+                        ),
+            ]);
+        } catch (
+            ModelNotFoundException
+        ) {
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Ruta no encontrada.',
+
+                'code' =>
+                    'NOT_FOUND',
+            ], 404);
+        } catch (
+            RuntimeException $e
+        ) {
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    $e->getMessage(),
+
+                'code' =>
+                    'INVALID_ROUTE',
+            ], 422);
         }
     }
 
-    public function updateEstado(UpdateEstadoViajeRequest $request, Viaje $viaje): JsonResponse|ViajeResource
-    {
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR VIAJE
+    |--------------------------------------------------------------------------
+    */
+
+    public function store(
+        CrearViajeRequest $request
+    ): JsonResponse|ViajeResource {
         try {
-            return new ViajeResource($this->ventaService->actualizarEstadoViaje(
-                $viaje,
-                $request->validated()['estado']
-            ));
-        } catch (AccessDeniedHttpException $e) {
-            return SecurityResponse::forbidden($e->getMessage());
+            $data =
+                $request->validated();
+
+            /*
+            |--------------------------------------------------------------------------
+            | COMPATIBILIDAD CON FLUJO ANTERIOR
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !empty(
+                    $data[
+                        'id_vehiculo_chofer_ruta'
+                    ]
+                )
+            ) {
+                return new ViajeResource(
+                    $this->ventaService
+                        ->crearViaje(
+                            (int)
+                            $data[
+                                'id_vehiculo_chofer_ruta'
+                            ]
+                        )
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | NUEVO FLUJO
+            |--------------------------------------------------------------------------
+            |
+            | Frontend:
+            |
+            | Asignación
+            | +
+            | Ruta
+            |
+            | Backend:
+            |
+            | calcula hora
+            | ↓
+            | crea VCR
+            | ↓
+            | crea viaje
+            |
+            */
+
+            return new ViajeResource(
+                $this->ventaService
+                    ->crearViajeProgramado(
+                        (int)
+                        $data[
+                            'id_asignacion_vehiculo_chofer'
+                        ],
+
+                        (int)
+                        $data[
+                            'id_ruta'
+                        ]
+                    )
+            );
+        } catch (
+            AccessDeniedHttpException $e
+        ) {
+            return SecurityResponse::forbidden(
+                $e->getMessage()
+            );
+        } catch (
+            ModelNotFoundException
+        ) {
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'La asignación o ruta seleccionada no existe.',
+
+                'code' =>
+                    'NOT_FOUND',
+            ], 404);
+        } catch (
+            RuntimeException $e
+        ) {
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    $e->getMessage(),
+
+                'code' =>
+                    'INVALID_TRIP',
+            ], 422);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMBIAR ESTADO
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateEstado(
+        UpdateEstadoViajeRequest $request,
+        Viaje $viaje
+    ): JsonResponse|ViajeResource {
+        try {
+            return new ViajeResource(
+                $this->ventaService
+                    ->actualizarEstadoViaje(
+                        $viaje,
+                        $request
+                            ->validated()[
+                                'estado'
+                            ]
+                    )
+            );
+        } catch (
+            AccessDeniedHttpException $e
+        ) {
+            return SecurityResponse::forbidden(
+                $e->getMessage()
+            );
         }
     }
 }

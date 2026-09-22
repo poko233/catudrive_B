@@ -51,6 +51,26 @@ class RutaController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | CHOFERES CON VIAJES EN UNA RUTA
+    |--------------------------------------------------------------------------
+    */
+
+    public function choferesViajes(
+        int $ruta
+    ): JsonResponse {
+        $data =
+            $this->service
+                ->choferesConViajes(
+                    $ruta
+                );
+
+        return response()->json(
+            $data
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | DETALLE
     |--------------------------------------------------------------------------
     */

@@ -6,12 +6,15 @@ namespace App\Modules\Ruta\Services;
 
 use App\Shared\Models\Ruta;
 use App\Shared\Services\AuditService;
+use App\Shared\Traits\GeneraUrlArchivo;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class RutaService
 {
+    use GeneraUrlArchivo;
+
     public function __construct(
         private readonly AuditService $audit
     ) {
@@ -63,6 +66,202 @@ class RutaService
             ->findOrFail(
                 $id
             );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHOFERES CON VIAJES REALES EN UNA RUTA
+    |--------------------------------------------------------------------------
+    |
+    | Importante:
+    |
+    | No basta con mirar vehiculo_chofer_ruta.
+    |
+    | Hacemos JOIN con `viaje`, por lo tanto el chofer solamente aparece
+    | cuando existe realmente al menos un registro de viaje para esa ruta.
+    |
+    | Si el mismo chofer tiene 5 viajes en esa ruta aparece una sola vez,
+    | con viajes_count = 5.
+    |
+    */
+
+    public function choferesConViajes(
+        int $idRuta
+    ): array {
+        $ruta =
+            Ruta::query()
+                ->findOrFail(
+                    $idRuta
+                );
+
+        $items =
+            DB::table(
+                'viaje as v'
+            )
+                ->join(
+                    'vehiculo_chofer_ruta as vcr',
+                    'vcr.id',
+                    '=',
+                    'v.id_vehiculo_chofer_ruta'
+                )
+                ->join(
+                    'asignacion_vehiculo_chofer as avc',
+                    'avc.id',
+                    '=',
+                    'vcr.id_asignacion_vehiculo_chofer'
+                )
+                ->join(
+                    'chofer as c',
+                    'c.id',
+                    '=',
+                    'avc.id_chofer'
+                )
+                ->join(
+                    'user as u',
+                    'u.id',
+                    '=',
+                    'c.id'
+                )
+                ->where(
+                    'vcr.id_ruta',
+                    $idRuta
+                )
+                ->select([
+                    'u.id',
+                    'u.nombres',
+                    'u.primer_apellido',
+                    'u.segundo_apellido',
+                    'u.ci',
+                    'u.celular',
+                    'u.foto',
+                    'u.estado',
+                    'c.carnet_sindical',
+                ])
+                ->selectRaw(
+                    'COUNT(DISTINCT v.id) AS viajes_count'
+                )
+                ->selectRaw(
+                    'MIN(vcr.hora_inicio) AS primera_salida'
+                )
+                ->selectRaw(
+                    'MAX(vcr.hora_inicio) AS ultima_salida'
+                )
+                ->groupBy([
+                    'u.id',
+                    'u.nombres',
+                    'u.primer_apellido',
+                    'u.segundo_apellido',
+                    'u.ci',
+                    'u.celular',
+                    'u.foto',
+                    'u.estado',
+                    'c.carnet_sindical',
+                ])
+                ->orderBy(
+                    'u.nombres'
+                )
+                ->orderBy(
+                    'u.primer_apellido'
+                )
+                ->get();
+
+        $choferes =
+            $items
+                ->map(
+                    function (
+                        object $item
+                    ): array {
+                        $nombreCompleto =
+                            trim(
+                                preg_replace(
+                                    '/\s+/u',
+                                    ' ',
+                                    implode(
+                                        ' ',
+                                        array_filter([
+                                            $item->nombres,
+                                            $item->primer_apellido !== '-'
+                                                ? $item->primer_apellido
+                                                : '',
+                                            $item->segundo_apellido,
+                                        ])
+                                    )
+                                )
+                                ?? ''
+                            );
+
+                        return [
+                            'id' =>
+                                (int)
+                                $item->id,
+
+                            'nombre_completo' =>
+                                $nombreCompleto,
+
+                            'carnet_identidad' =>
+                                $item->ci,
+
+                            'carnet_sindical' =>
+                                $item->carnet_sindical,
+
+                            'telefono' =>
+                                $item->celular,
+
+                            'fotografia' =>
+                                $item->foto,
+
+                            'fotoUrl' =>
+                                $this->urlArchivo(
+                                    $item->foto
+                                ),
+
+                            'estado' =>
+                                $item->estado
+                                    ? mb_strtoupper(
+                                        trim(
+                                            (string)
+                                            $item->estado
+                                        )
+                                    )
+                                    : null,
+
+                            'viajes_count' =>
+                                (int)
+                                $item->viajes_count,
+
+                            'primera_salida' =>
+                                $this->dateTime(
+                                    $item->primera_salida
+                                ),
+
+                            'ultima_salida' =>
+                                $this->dateTime(
+                                    $item->ultima_salida
+                                ),
+                        ];
+                    }
+                )
+                ->values();
+
+        return [
+            'ruta' => [
+                'id' =>
+                    (int)
+                    $ruta->id,
+
+                'origen' =>
+                    $ruta->origen,
+
+                'destino' =>
+                    $ruta->destino,
+            ],
+
+            'total' =>
+                $choferes->count(),
+
+            'choferes' =>
+                $choferes,
+        ];
     }
 
     /*
@@ -189,12 +388,6 @@ class RutaService
     |--------------------------------------------------------------------------
     | BAJA
     |--------------------------------------------------------------------------
-    |
-    | Baja lógica.
-    |
-    | No eliminamos la ruta porque puede existir
-    | historial relacionado a ella.
-    |
     */
 
     public function darBaja(
@@ -325,12 +518,6 @@ class RutaService
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ESTADO DB
-    |--------------------------------------------------------------------------
-    */
-
     private function dbEstado(
         string $estado
     ): string {
@@ -343,12 +530,6 @@ class RutaService
                 ? 'Inactiva'
                 : 'Activa';
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | SNAPSHOT
-    |--------------------------------------------------------------------------
-    */
 
     private function snapshot(
         Ruta $ruta
@@ -421,5 +602,23 @@ class RutaService
                     5
                 )
                 : $value;
+    }
+
+    private function dateTime(
+        mixed $value
+    ): ?string {
+        if (
+            $value === null ||
+            $value === ''
+        ) {
+            return null;
+        }
+
+        return Carbon::parse(
+            (string)
+            $value
+        )->format(
+            'Y-m-d H:i:s'
+        );
     }
 }

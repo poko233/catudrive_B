@@ -61,6 +61,15 @@ class EncomiendaService
         return $this->queryViajesPermitidos()->findOrFail($id);
     }
 
+    private function estadoEncomiendaSegunViaje(Viaje $viaje): string
+    {
+        return match ($viaje->estado) {
+            'En curso' => 'En tránsito',
+            'Finalizado' => 'En destino',
+            default => 'En origen',
+        };
+    }
+
     public function listar(array $f = [], int $per = 15): LengthAwarePaginator
     {
         $q = $this->queryBase();
@@ -186,8 +195,9 @@ class EncomiendaService
                 'tipo_pago' => $data['estado_pago'] === 'Pagado'
                     ? ($data['tipo_pago'] ?? null)
                     : null,
-                'estado' => 'En origen',
+                'estado' => $this->estadoEncomiendaSegunViaje($v),
             ]);
+
 
             $e->guia = $this->generarGuia((int) $e->id);
             $e->save();
@@ -388,6 +398,9 @@ class EncomiendaService
                 $ve->save();
             } else
                 ViajeEncomienda::query()->create(['id_viaje' => $v->id, 'id_encomienda' => $id]);
+            $e->estado = $this->estadoEncomiendaSegunViaje($v);
+            $e->save();
+
             $fresh = $this->obtener($id);
             $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
             return $fresh;
@@ -419,6 +432,7 @@ class EncomiendaService
             $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
 
             return $fresh;
+
         });
     }
 
