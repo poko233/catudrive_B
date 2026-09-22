@@ -109,68 +109,21 @@ class AsignacionVehiculoService
     ): array {
         /*
         |--------------------------------------------------------------------------
-        | CHOFERES OCUPADOS
+        | CHOFERES ACTIVOS
         |--------------------------------------------------------------------------
-        */
-
-        $choferesOcupados =
-            AsignacionVehiculoChofer::query()
-                ->where(
-                    'estado',
-                    'Activo'
-                )
-                ->when(
-                    $exceptoAsignacion,
-                    fn (Builder $query) =>
-                        $query->where(
-                            'id',
-                            '!=',
-                            $exceptoAsignacion
-                        )
-                )
-                ->pluck(
-                    'id_chofer'
-                );
-
-        /*
-        |--------------------------------------------------------------------------
-        | VEHÍCULOS OCUPADOS
-        |--------------------------------------------------------------------------
-        */
-
-        $vehiculosOcupados =
-            AsignacionVehiculoChofer::query()
-                ->where(
-                    'estado',
-                    'Activo'
-                )
-                ->when(
-                    $exceptoAsignacion,
-                    fn (Builder $query) =>
-                        $query->where(
-                            'id',
-                            '!=',
-                            $exceptoAsignacion
-                        )
-                )
-                ->pluck(
-                    'id_vehiculo'
-                );
-
-        /*
-        |--------------------------------------------------------------------------
-        | CHOFERES DISPONIBLES
-        |--------------------------------------------------------------------------
+        |
+        | Un chofer puede estar asociado a varios
+        | vehículos simultáneamente.
+        |
+        | Por eso no excluimos choferes que ya
+        | tengan asignaciones activas.
+        |
         */
 
         $choferes =
             Chofer::query()
                 ->with(
                     'usuario'
-                )
-                ->whereNotIn(
-                    'id',
-                    $choferesOcupados
                 )
                 ->whereHas(
                     'usuario',
@@ -224,23 +177,28 @@ class AsignacionVehiculoService
                 ->sortBy(
                     fn (array $item) =>
                         mb_strtolower(
-                            $item['nombre']
+                            $item[
+                                'nombre'
+                            ]
                         )
                 )
                 ->values();
 
         /*
         |--------------------------------------------------------------------------
-        | VEHÍCULOS DISPONIBLES
+        | VEHÍCULOS OPERATIVOS
         |--------------------------------------------------------------------------
+        |
+        | Un vehículo puede estar asociado a varios
+        | choferes simultáneamente.
+        |
+        | Por eso tampoco excluimos vehículos que
+        | ya tengan asignaciones activas.
+        |
         */
 
         $vehiculos =
             Vehiculo::query()
-                ->whereNotIn(
-                    'id',
-                    $vehiculosOcupados
-                )
                 ->where(
                     'estado',
                     'Operativo'
@@ -405,8 +363,6 @@ class AsignacionVehiculoService
     | CAMBIO DE ASIGNACIÓN
     |--------------------------------------------------------------------------
     |
-    | MUY IMPORTANTE:
-    |
     | No sobrescribimos el histórico.
     |
     | Ejemplo:
@@ -422,6 +378,14 @@ class AsignacionVehiculoService
     | Luis -> Bus 04
     |
     | Activo
+    |
+    | IMPORTANTE:
+    |
+    | Como ahora las asignaciones son muchos a muchos,
+    | solamente se finaliza la relación seleccionada.
+    |
+    | Las otras asignaciones del mismo chofer o vehículo
+    | permanecen activas.
     |
     */
 
@@ -533,6 +497,13 @@ class AsignacionVehiculoService
                 |--------------------------------------------------------------------------
                 | FINALIZAR ACTUAL
                 |--------------------------------------------------------------------------
+                |
+                | Solo finalizamos ESTA relación.
+                |
+                | Si el chofer tiene otros vehículos o
+                | el vehículo tiene otros choferes,
+                | esas relaciones no se modifican.
+                |
                 */
 
                 $actual->estado =
@@ -645,6 +616,19 @@ class AsignacionVehiculoService
     |--------------------------------------------------------------------------
     | FINALIZAR
     |--------------------------------------------------------------------------
+    |
+    | Finaliza exclusivamente la relación seleccionada.
+    |
+    | Ejemplo:
+    |
+    | Andrew -> Toyota A
+    | Andrew -> Toyota B
+    |
+    | Si finalizamos Andrew -> Toyota A:
+    |
+    | Andrew -> Toyota A = Inactivo
+    | Andrew -> Toyota B = Activo
+    |
     */
 
     public function finalizar(
@@ -740,10 +724,12 @@ class AsignacionVehiculoService
     | BLOQUEAR CHOFER Y VEHÍCULO
     |--------------------------------------------------------------------------
     |
-    | Reduce problemas de concurrencia:
+    | Reduce problemas de concurrencia.
     |
-    | dos usuarios intentando asignar
-    | simultáneamente el mismo recurso.
+    | Aunque ambos puedan tener múltiples
+    | relaciones, el bloqueo evita que dos
+    | operaciones creen al mismo tiempo
+    | exactamente la misma pareja.
     |
     */
 
@@ -772,6 +758,22 @@ class AsignacionVehiculoService
     |--------------------------------------------------------------------------
     | VALIDAR DISPONIBILIDAD
     |--------------------------------------------------------------------------
+    |
+    | REGLA:
+    |
+    | Chofer A -> Vehículo 1 = permitido
+    | Chofer A -> Vehículo 2 = permitido
+    |
+    | Chofer B -> Vehículo 1 = permitido
+    | Chofer B -> Vehículo 2 = permitido
+    |
+    | Lo único que no permitimos es:
+    |
+    | Chofer A -> Vehículo 1
+    | Chofer A -> Vehículo 1
+    |
+    | dos veces activas simultáneamente.
+    |
     */
 
     private function validarDisponibilidad(
@@ -783,6 +785,10 @@ class AsignacionVehiculoService
         |--------------------------------------------------------------------------
         | CHOFER
         |--------------------------------------------------------------------------
+        |
+        | El chofer solamente debe existir
+        | y encontrarse activo.
+        |
         */
 
         $chofer =
@@ -813,6 +819,10 @@ class AsignacionVehiculoService
         |--------------------------------------------------------------------------
         | VEHÍCULO
         |--------------------------------------------------------------------------
+        |
+        | El vehículo solamente debe existir
+        | y encontrarse operativo.
+        |
         */
 
         $vehiculo =
@@ -837,48 +847,23 @@ class AsignacionVehiculoService
 
         /*
         |--------------------------------------------------------------------------
-        | CHOFER YA OCUPADO
+        | MISMA PAREJA YA ACTIVA
         |--------------------------------------------------------------------------
+        |
+        | Evitamos únicamente duplicar exactamente:
+        |
+        | id_chofer + id_vehiculo
+        |
+        | mientras ambos registros estén activos.
+        |
         */
 
-        $choferOcupado =
+        $asignacionDuplicada =
             AsignacionVehiculoChofer::query()
                 ->where(
                     'id_chofer',
                     $idChofer
                 )
-                ->where(
-                    'estado',
-                    'Activo'
-                )
-                ->when(
-                    $exceptoAsignacion,
-                    fn (Builder $query) =>
-                        $query->where(
-                            'id',
-                            '!=',
-                            $exceptoAsignacion
-                        )
-                )
-                ->exists();
-
-        if (
-            $choferOcupado
-        ) {
-            throw ValidationException::withMessages([
-                'id_chofer' =>
-                    'El chofer ya tiene un vehículo asignado.',
-            ]);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | VEHÍCULO YA OCUPADO
-        |--------------------------------------------------------------------------
-        */
-
-        $vehiculoOcupado =
-            AsignacionVehiculoChofer::query()
                 ->where(
                     'id_vehiculo',
                     $idVehiculo
@@ -899,11 +884,11 @@ class AsignacionVehiculoService
                 ->exists();
 
         if (
-            $vehiculoOcupado
+            $asignacionDuplicada
         ) {
             throw ValidationException::withMessages([
-                'id_vehiculo' =>
-                    'El vehículo ya se encuentra asignado a otro chofer.',
+                'asignacion' =>
+                    'Este chofer ya tiene una asignación activa con este vehículo.',
             ]);
         }
     }
