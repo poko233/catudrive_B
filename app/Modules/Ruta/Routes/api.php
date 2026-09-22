@@ -58,6 +58,32 @@ Route::prefix(
 
             /*
             |--------------------------------------------------------------------------
+            | CHOFERES CON VIAJES EN LA RUTA
+            |--------------------------------------------------------------------------
+            |
+            | GET /api/rutas/{ruta}/choferes-viajes
+            |
+            */
+
+            Route::get(
+                '/{ruta}/choferes-viajes',
+                [
+                    RutaController::class,
+                    'choferesViajes',
+                ]
+            )
+                ->whereNumber(
+                    'ruta'
+                )
+                ->middleware(
+                    'permiso:Rutas,Rutas,Ver'
+                )
+                ->name(
+                    'rutas.choferes-viajes'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
             | ACTUALIZAR
             |--------------------------------------------------------------------------
             */

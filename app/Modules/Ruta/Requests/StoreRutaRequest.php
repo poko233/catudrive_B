@@ -18,10 +18,23 @@ class StoreRutaRequest extends FormRequest
     |--------------------------------------------------------------------------
     | NORMALIZACIÓN
     |--------------------------------------------------------------------------
+    |
+    | En creación, si no llega hora_inicio, usamos 06:00.
+    |
+    | El frontend también la muestra por defecto, pero esta protección
+    | garantiza la misma regla para cualquier cliente de la API.
+    |
     */
 
     protected function prepareForValidation(): void
     {
+        $horaInicio =
+            $this->nullableText(
+                $this->input(
+                    'hora_inicio'
+                )
+            );
+
         $this->merge([
             'origen' =>
                 trim(
@@ -48,12 +61,12 @@ class StoreRutaRequest extends FormRequest
                     )
                 ),
 
+            /*
+             * Hora recomendada/predeterminada.
+             */
             'hora_inicio' =>
-                $this->nullableText(
-                    $this->input(
-                        'hora_inicio'
-                    )
-                ),
+                $horaInicio
+                ?? '06:00',
 
             'fecha_fin' =>
                 $this->nullableText(
@@ -82,12 +95,6 @@ class StoreRutaRequest extends FormRequest
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | REGLAS
-    |--------------------------------------------------------------------------
-    */
-
     public function rules(): array
     {
         return [
@@ -103,19 +110,17 @@ class StoreRutaRequest extends FormRequest
                 'max:255',
             ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | TODOS LOS CAMPOS DE FECHA/HORA SON INDEPENDIENTES
-            |--------------------------------------------------------------------------
-            */
-
             'fecha_inicio' => [
                 'nullable',
                 'date_format:Y-m-d',
             ],
 
+            /*
+             * Para nuevas rutas siempre existe una hora inicial.
+             * Por defecto será 06:00, pero el usuario puede cambiarla.
+             */
             'hora_inicio' => [
-                'nullable',
+                'required',
                 'date_format:H:i',
             ],
 
@@ -144,12 +149,6 @@ class StoreRutaRequest extends FormRequest
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDACIONES RELACIONALES
-    |--------------------------------------------------------------------------
-    */
-
     public function withValidator(
         Validator $validator
     ): void {
@@ -177,12 +176,6 @@ class StoreRutaRequest extends FormRequest
                         'hora_fin'
                     );
 
-                /*
-                |--------------------------------------------------------------------------
-                | SI EXISTEN AMBAS FECHAS
-                |--------------------------------------------------------------------------
-                */
-
                 if (
                     $fechaInicio &&
                     $fechaFin &&
@@ -198,23 +191,6 @@ class StoreRutaRequest extends FormRequest
 
                     return;
                 }
-
-                /*
-                |--------------------------------------------------------------------------
-                | MISMO DÍA + AMBAS HORAS
-                |--------------------------------------------------------------------------
-                |
-                | Si las fechas son iguales sí sabemos que
-                | hora_fin debe ser posterior.
-                |
-                | Si solamente existen las horas NO hacemos
-                | esta validación, porque:
-                |
-                | 18:00 -> 08:00
-                |
-                | puede ser una ruta nocturna.
-                |
-                */
 
                 if (
                     $fechaInicio &&
@@ -251,6 +227,9 @@ class StoreRutaRequest extends FormRequest
 
             'fecha_fin.date_format' =>
                 'La fecha de finalización debe tener el formato YYYY-MM-DD.',
+
+            'hora_inicio.required' =>
+                'La hora de inicio es obligatoria.',
 
             'hora_inicio.date_format' =>
                 'La hora de inicio debe tener el formato HH:mm.',

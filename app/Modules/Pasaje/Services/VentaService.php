@@ -4,21 +4,44 @@ declare(strict_types=1);
 
 namespace App\Modules\Pasaje\Services;
 
+use App\Modules\Arqueo\Services\ArqueoService;
+use App\Shared\Models\AsignacionVehiculoChofer;
 use App\Shared\Models\DetalleVenta;
+use App\Shared\Models\Ingreso;
 use App\Shared\Models\Pasajero;
+use App\Shared\Models\Ruta;
 use App\Shared\Models\VehiculoChoferRuta;
 use App\Shared\Models\Venta;
 use App\Shared\Models\Viaje;
 use App\Shared\Services\QrService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use App\Modules\Arqueo\Services\ArqueoService;
-use App\Shared\Models\Ingreso;
 
 class VentaService
 {
+    /*
+    |--------------------------------------------------------------------------
+    | INTERVALO ENTRE VIAJES
+    |--------------------------------------------------------------------------
+    |
+    | Ruta:
+    |
+    | 06:00
+    | ↓
+    | 06:30
+    | ↓
+    | 07:00
+    | ↓
+    | 07:30
+    |
+    */
+
+    private const INTERVALO_VIAJE_MINUTOS =
+        30;
+
     public function __construct(
         private readonly QrService $qrService,
         private readonly ChoferContextService $choferContext,
@@ -30,31 +53,64 @@ class VentaService
     // HELPERS DE AISLAMIENTO
     // ─────────────────────────────────────────────────────────────
 
-    private function validarPropietarioViaje(Viaje $viaje): void
-    {
-        $idChofer = $this->choferContext->idChoferActual();
-        if ($idChofer === null) {
+    private function validarPropietarioViaje(
+        Viaje $viaje
+    ): void {
+        $idChofer =
+            $this->choferContext
+                ->idChoferActual();
+
+        if (
+            $idChofer === null
+        ) {
             return;
         }
 
-        $idChoferDelViaje = $viaje->vehiculoChoferRuta?->asignacion?->id_chofer;
+        $idChoferDelViaje =
+            $viaje
+                ->vehiculoChoferRuta
+                ?->asignacion
+                ?->id_chofer;
 
-        if ((int) $idChoferDelViaje !== $idChofer) {
-            throw new AccessDeniedHttpException('No tienes acceso a este viaje.');
+        if (
+            (int)
+            $idChoferDelViaje !==
+            $idChofer
+        ) {
+            throw new AccessDeniedHttpException(
+                'No tienes acceso a este viaje.'
+            );
         }
     }
 
-    private function validarPropietarioVenta(Venta $venta): void
-    {
-        $idChofer = $this->choferContext->idChoferActual();
-        if ($idChofer === null) {
+    private function validarPropietarioVenta(
+        Venta $venta
+    ): void {
+        $idChofer =
+            $this->choferContext
+                ->idChoferActual();
+
+        if (
+            $idChofer === null
+        ) {
             return;
         }
 
-        $idChoferDelViaje = $venta->viaje?->vehiculoChoferRuta?->asignacion?->id_chofer;
+        $idChoferDelViaje =
+            $venta
+                ->viaje
+                ?->vehiculoChoferRuta
+                ?->asignacion
+                ?->id_chofer;
 
-        if ((int) $idChoferDelViaje !== $idChofer) {
-            throw new AccessDeniedHttpException('No tienes acceso a esta venta.');
+        if (
+            (int)
+            $idChoferDelViaje !==
+            $idChofer
+        ) {
+            throw new AccessDeniedHttpException(
+                'No tienes acceso a esta venta.'
+            );
         }
     }
 
@@ -62,72 +118,653 @@ class VentaService
     // VIAJES
     // ─────────────────────────────────────────────────────────────
 
-    public function listarViajes(array $filtros, int $perPage = 15)
-    {
-        $idChofer = $this->choferContext->idChoferActual();
+    public function listarViajes(
+        array $filtros,
+        int $perPage = 15
+    ) {
+        $idChofer =
+            $this->choferContext
+                ->idChoferActual();
 
-        $query = Viaje::query()
-            ->with([
+        $query =
+            Viaje::query()
+                ->with([
+                    'vehiculoChoferRuta.ruta',
+                    'vehiculoChoferRuta.asignacion.vehiculo',
+                    'vehiculoChoferRuta.asignacion.chofer.usuario',
+                ])
+                ->orderByRaw(
+                    "CASE estado
+                        WHEN 'Vendiendo' THEN 0
+                        WHEN 'En curso' THEN 1
+                        ELSE 2
+                    END"
+                )
+                ->orderBy(
+                    'created_at',
+                    'desc'
+                );
+
+        if (
+            $idChofer !== null
+        ) {
+            $query->whereHas(
+                'vehiculoChoferRuta.asignacion',
+                fn($q) =>
+                    $q->where(
+                        'id_chofer',
+                        $idChofer
+                    )
+            );
+        }
+
+        if (
+            !empty(
+                $filtros[
+                    'origen'
+                ]
+            )
+        ) {
+            $query->whereHas(
                 'vehiculoChoferRuta.ruta',
-                'vehiculoChoferRuta.asignacion.vehiculo',
-                'vehiculoChoferRuta.asignacion.chofer.usuario',
-            ])
-            ->orderByRaw("CASE estado WHEN 'Vendiendo' THEN 0 WHEN 'En curso' THEN 1 ELSE 2 END")
-            ->orderBy('created_at', 'desc');
-
-        if ($idChofer !== null) {
-            $query->whereHas('vehiculoChoferRuta.asignacion', fn($q) => $q->where('id_chofer', $idChofer));
+                fn($q) =>
+                    $q->where(
+                        'origen',
+                        'like',
+                        '%' .
+                        $filtros[
+                            'origen'
+                        ] .
+                        '%'
+                    )
+            );
         }
 
-        if (!empty($filtros['origen'])) {
-            $query->whereHas('vehiculoChoferRuta.ruta', fn($q) => $q->where('origen', 'like', '%' . $filtros['origen'] . '%'));
+        if (
+            !empty(
+                $filtros[
+                    'destino'
+                ]
+            )
+        ) {
+            $query->whereHas(
+                'vehiculoChoferRuta.ruta',
+                fn($q) =>
+                    $q->where(
+                        'destino',
+                        'like',
+                        '%' .
+                        $filtros[
+                            'destino'
+                        ] .
+                        '%'
+                    )
+            );
         }
 
-        if (!empty($filtros['destino'])) {
-            $query->whereHas('vehiculoChoferRuta.ruta', fn($q) => $q->where('destino', 'like', '%' . $filtros['destino'] . '%'));
+        if (
+            !empty(
+                $filtros[
+                    'fecha'
+                ]
+            )
+        ) {
+            $query->whereHas(
+                'vehiculoChoferRuta',
+                fn($q) =>
+                    $q->whereDate(
+                        'hora_inicio',
+                        $filtros[
+                            'fecha'
+                        ]
+                    )
+            );
         }
 
-        if (!empty($filtros['fecha'])) {
-            $query->whereHas('vehiculoChoferRuta', fn($q) => $q->whereDate('hora_inicio', $filtros['fecha']));
+        if (
+            !empty(
+                $filtros[
+                    'estado'
+                ]
+            )
+        ) {
+            $query->where(
+                'estado',
+                $filtros[
+                    'estado'
+                ]
+            );
         }
 
-        if (!empty($filtros['estado'])) {
-            $query->where('estado', $filtros['estado']);
+        if (
+            !empty(
+                $filtros[
+                    'vehiculo_id'
+                ]
+            )
+        ) {
+            $query->whereHas(
+                'vehiculoChoferRuta.asignacion',
+                fn($q) =>
+                    $q->where(
+                        'id_vehiculo',
+                        $filtros[
+                            'vehiculo_id'
+                        ]
+                    )
+            );
         }
 
-        if (!empty($filtros['vehiculo_id'])) {
-            $query->whereHas('vehiculoChoferRuta.asignacion', fn($q) => $q->where('id_vehiculo', $filtros['vehiculo_id']));
+        if (
+            !empty(
+                $filtros[
+                    'chofer_id'
+                ]
+            )
+        ) {
+            $query->whereHas(
+                'vehiculoChoferRuta.asignacion',
+                fn($q) =>
+                    $q->where(
+                        'id_chofer',
+                        $filtros[
+                            'chofer_id'
+                        ]
+                    )
+            );
         }
 
-        if (!empty($filtros['chofer_id'])) {
-            $query->whereHas('vehiculoChoferRuta.asignacion', fn($q) => $q->where('id_chofer', $filtros['chofer_id']));
-        }
-
-        return $query->paginate($perPage);
+        return $query->paginate(
+            $perPage
+        );
     }
 
-    public function crearViaje(int $idVehiculoChoferRuta): Viaje
-    {
-        $vehiculoChoferRuta = VehiculoChoferRuta::query()
-            ->with('asignacion')
-            ->findOrFail($idVehiculoChoferRuta);
+    /*
+    |--------------------------------------------------------------------------
+    | PRÓXIMA HORA DE UNA RUTA
+    |--------------------------------------------------------------------------
+    */
 
-        $this->choferContext->validarPertenece(
-            (int) $vehiculoChoferRuta->asignacion?->id_chofer
+    public function obtenerProximaHoraRuta(
+        int $idRuta
+    ): array {
+        $ruta =
+            Ruta::query()
+                ->findOrFail(
+                    $idRuta
+                );
+
+        if (
+            mb_strtolower(
+                trim(
+                    (string)
+                    $ruta->estado
+                )
+            ) !==
+            'activa'
+        ) {
+            throw new RuntimeException(
+                'La ruta seleccionada no está activa.'
+            );
+        }
+
+        $proximaHora =
+            $this->calcularProximaHoraRuta(
+                $ruta
+            );
+
+        return [
+            'id_ruta' =>
+                (int)
+                $ruta->id,
+
+            'fecha' =>
+                $proximaHora
+                    ->format(
+                        'Y-m-d'
+                    ),
+
+            'hora' =>
+                $proximaHora
+                    ->format(
+                        'H:i'
+                    ),
+
+            'fecha_hora' =>
+                $proximaHora
+                    ->format(
+                        'Y-m-d H:i:s'
+                    ),
+
+            'intervalo_minutos' =>
+                self::INTERVALO_VIAJE_MINUTOS,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR VIAJE PROGRAMADO
+    |--------------------------------------------------------------------------
+    |
+    | Este es el NUEVO flujo.
+    |
+    | Recibe:
+    |
+    | id_asignacion_vehiculo_chofer
+    | id_ruta
+    |
+    | Ejemplo:
+    |
+    | Ruta inicia a las 06:00
+    |
+    | Primer viaje:
+    | 06:00
+    |
+    | Segundo:
+    | 06:30
+    |
+    | Tercero:
+    | 07:00
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    public function crearViajeProgramado(
+        int $idAsignacion,
+        int $idRuta
+    ): Viaje {
+        return DB::transaction(
+            function () use (
+                $idAsignacion,
+                $idRuta
+            ): Viaje {
+                /*
+                |--------------------------------------------------------------------------
+                | BLOQUEAMOS LA RUTA
+                |--------------------------------------------------------------------------
+                |
+                | Esto es importante porque evita que dos computadoras
+                | creen simultáneamente:
+                |
+                | Viaje 1 → 06:30
+                | Viaje 2 → 06:30
+                |
+                | La segunda petición esperará a la primera y después
+                | calculará 07:00.
+                |
+                */
+
+                $ruta =
+                    Ruta::query()
+                        ->lockForUpdate()
+                        ->findOrFail(
+                            $idRuta
+                        );
+
+                if (
+                    mb_strtolower(
+                        trim(
+                            (string)
+                            $ruta->estado
+                        )
+                    ) !==
+                    'activa'
+                ) {
+                    throw new RuntimeException(
+                        'La ruta seleccionada no está activa.'
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | ASIGNACIÓN VEHÍCULO - CHOFER
+                |--------------------------------------------------------------------------
+                */
+
+                $asignacion =
+                    AsignacionVehiculoChofer::query()
+                        ->lockForUpdate()
+                        ->findOrFail(
+                            $idAsignacion
+                        );
+
+                if (
+                    mb_strtolower(
+                        trim(
+                            (string)
+                            $asignacion->estado
+                        )
+                    ) !==
+                    'activo'
+                ) {
+                    throw new RuntimeException(
+                        'La asignación vehículo-chofer seleccionada no está activa.'
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | SEGURIDAD PARA USUARIO CHOFER
+                |--------------------------------------------------------------------------
+                */
+
+                $this->choferContext
+                    ->validarPertenece(
+                        (int)
+                        $asignacion
+                            ->id_chofer
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | CALCULAR HORA REAL
+                |--------------------------------------------------------------------------
+                |
+                | Aunque el frontend ya mostró una hora,
+                | volvemos a calcular aquí.
+                |
+                | Eso evita errores si otro usuario creó
+                | un viaje mientras el modal estaba abierto.
+                |
+                */
+
+                $proximaHora =
+                    $this->calcularProximaHoraRuta(
+                        $ruta
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | CREAR RELACIÓN VEHÍCULO - CHOFER - RUTA
+                |--------------------------------------------------------------------------
+                */
+
+                $vehiculoChoferRuta =
+                    VehiculoChoferRuta::query()
+                        ->firstOrCreate(
+                            [
+                                'id_asignacion_vehiculo_chofer' =>
+                                    $idAsignacion,
+
+                                'id_ruta' =>
+                                    $idRuta,
+
+                                'hora_inicio' =>
+                                    $proximaHora
+                                        ->format(
+                                            'Y-m-d H:i:s'
+                                        ),
+                            ]
+                        );
+
+                /*
+                |--------------------------------------------------------------------------
+                | PROTECCIÓN
+                |--------------------------------------------------------------------------
+                |
+                | Si por algún dato antiguo esa relación ya tenía
+                | un viaje, no creamos otro viaje duplicado.
+                |
+                */
+
+                $viajeExistente =
+                    Viaje::query()
+                        ->where(
+                            'id_vehiculo_chofer_ruta',
+                            $vehiculoChoferRuta
+                                ->id
+                        )
+                        ->exists();
+
+                if (
+                    $viajeExistente
+                ) {
+                    throw new RuntimeException(
+                        'Ya existe un viaje para la hora calculada. Actualiza la pantalla e inténtalo nuevamente.'
+                    );
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | CREAR VIAJE
+                |--------------------------------------------------------------------------
+                */
+
+                $viaje =
+                    Viaje::query()
+                        ->create([
+                            'id_vehiculo_chofer_ruta' =>
+                                $vehiculoChoferRuta
+                                    ->id,
+
+                            'estado' =>
+                                'Vendiendo',
+                        ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | CARGAR INFORMACIÓN PARA ViajeResource
+                |--------------------------------------------------------------------------
+                */
+
+                return $viaje
+                    ->load([
+                        'vehiculoChoferRuta.ruta',
+                        'vehiculoChoferRuta.asignacion.vehiculo',
+                        'vehiculoChoferRuta.asignacion.chofer.usuario',
+                    ]);
+            },
+            3
         );
+    }
 
-        return Viaje::query()->create([
-            'id_vehiculo_chofer_ruta' => $idVehiculoChoferRuta,
-            'estado' => 'Vendiendo',
+    /*
+    |--------------------------------------------------------------------------
+    | CALCULAR PRÓXIMA HORA
+    |--------------------------------------------------------------------------
+    */
+
+    private function calcularProximaHoraRuta(
+        Ruta $ruta
+    ): Carbon {
+        /*
+        |--------------------------------------------------------------------------
+        | HORA BASE
+        |--------------------------------------------------------------------------
+        */
+
+        $horaBase =
+            trim(
+                (string)
+                $ruta->hora_inicio
+            );
+
+        if (
+            $horaBase === ''
+        ) {
+            throw new RuntimeException(
+                'La ruta seleccionada no tiene una hora de inicio configurada.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | FECHA BASE
+        |--------------------------------------------------------------------------
+        |
+        | Si la ruta tiene fecha_inicio usamos esa fecha.
+        |
+        | Si por algún dato antiguo no tiene fecha, usamos hoy.
+        |
+        */
+
+        $fechaBase =
+            $ruta->fecha_inicio
+                ?->format(
+                    'Y-m-d'
+                )
+            ??
+            now()->format(
+                'Y-m-d'
+            );
+
+        $inicioRuta =
+            Carbon::parse(
+                $fechaBase .
+                ' ' .
+                $horaBase
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | ÚLTIMO VIAJE REAL DE LA MISMA RUTA
+        |--------------------------------------------------------------------------
+        |
+        | Importante:
+        |
+        | buscamos VIAJES reales.
+        |
+        | No contamos relaciones antiguas que no tengan viaje.
+        |
+        */
+
+        $ultimaHora =
+            DB::table(
+                'vehiculo_chofer_ruta as vcr'
+            )
+                ->join(
+                    'viaje as v',
+                    'v.id_vehiculo_chofer_ruta',
+                    '=',
+                    'vcr.id'
+                )
+                ->where(
+                    'vcr.id_ruta',
+                    $ruta->id
+                )
+                ->whereNotNull(
+                    'vcr.hora_inicio'
+                )
+                ->max(
+                    'vcr.hora_inicio'
+                );
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRIMER VIAJE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$ultimaHora
+        ) {
+            return $inicioRuta;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SIGUIENTE VIAJE
+        |--------------------------------------------------------------------------
+        */
+
+        $proximaHora =
+            Carbon::parse(
+                (string)
+                $ultimaHora
+            )
+                ->addMinutes(
+                    self::INTERVALO_VIAJE_MINUTOS
+                );
+
+        /*
+        |--------------------------------------------------------------------------
+        | SEGURIDAD
+        |--------------------------------------------------------------------------
+        |
+        | Nunca devolver una hora anterior a la hora configurada
+        | originalmente en la ruta.
+        |
+        */
+
+        if (
+            $proximaHora->lt(
+                $inicioRuta
+            )
+        ) {
+            return $inicioRuta;
+        }
+
+        return $proximaHora;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREAR VIAJE LEGACY
+    |--------------------------------------------------------------------------
+    |
+    | Se conserva temporalmente para no romper versiones antiguas.
+    |
+    */
+
+    public function crearViaje(
+        int $idVehiculoChoferRuta
+    ): Viaje {
+        $vehiculoChoferRuta =
+            VehiculoChoferRuta::query()
+                ->with(
+                    'asignacion'
+                )
+                ->findOrFail(
+                    $idVehiculoChoferRuta
+                );
+
+        $this->choferContext
+            ->validarPertenece(
+                (int)
+                $vehiculoChoferRuta
+                    ->asignacion
+                    ?->id_chofer
+            );
+
+        $viaje =
+            Viaje::query()
+                ->create([
+                    'id_vehiculo_chofer_ruta' =>
+                        $idVehiculoChoferRuta,
+
+                    'estado' =>
+                        'Vendiendo',
+                ]);
+
+        return $viaje->load([
+            'vehiculoChoferRuta.ruta',
+            'vehiculoChoferRuta.asignacion.vehiculo',
+            'vehiculoChoferRuta.asignacion.chofer.usuario',
         ]);
     }
 
-    public function actualizarEstadoViaje(Viaje $viaje, string $estado): Viaje
-    {
-        $viaje->loadMissing('vehiculoChoferRuta.asignacion');
-        $this->validarPropietarioViaje($viaje);
+    /*
+    |--------------------------------------------------------------------------
+    | CAMBIAR ESTADO DEL VIAJE
+    |--------------------------------------------------------------------------
+    */
 
-        $viaje->update(['estado' => $estado]);
+    public function actualizarEstadoViaje(
+        Viaje $viaje,
+        string $estado
+    ): Viaje {
+        $viaje->loadMissing(
+            'vehiculoChoferRuta.asignacion'
+        );
+
+        $this->validarPropietarioViaje(
+            $viaje
+        );
+
+        $viaje->update([
+            'estado' =>
+                $estado,
+        ]);
 
         return $viaje->fresh();
     }
@@ -136,80 +773,189 @@ class VentaService
     // ASIENTOS
     // ─────────────────────────────────────────────────────────────
 
-    public function obtenerAsientos(int $idViaje): array
-    {
-        $viaje = Viaje::query()
-            ->with([
-                'vehiculoChoferRuta.asignacion.vehiculo.pisos.asientos',
-                'vehiculoChoferRuta.asignacion',
-            ])
-            ->findOrFail($idViaje);
+    public function obtenerAsientos(
+        int $idViaje
+    ): array {
+        $viaje =
+            Viaje::query()
+                ->with([
+                    'vehiculoChoferRuta.asignacion.vehiculo.pisos.asientos',
+                    'vehiculoChoferRuta.asignacion',
+                ])
+                ->findOrFail(
+                    $idViaje
+                );
 
-        $this->validarPropietarioViaje($viaje);
+        $this->validarPropietarioViaje(
+            $viaje
+        );
 
-        $vehiculo = $viaje->vehiculoChoferRuta->asignacion->vehiculo;
+        $vehiculo =
+            $viaje
+                ->vehiculoChoferRuta
+                ->asignacion
+                ->vehiculo;
 
-        $detallesActivos = DetalleVenta::query()
-            ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
-            ->where('venta.id_viaje', $idViaje)
-            ->whereIn('venta.estado', ['Pendiente', 'Pagada'])
-            ->whereNull('venta.deleted_at')
-            ->select(
-                'detalle_venta.id_asiento',
-                'detalle_venta.id as id_detalle_venta',
-                'venta.id as id_venta',
-                'venta.estado as estado_venta'
-            )
-            ->get();
+        $detallesActivos =
+            DetalleVenta::query()
+                ->join(
+                    'venta',
+                    'venta.id',
+                    '=',
+                    'detalle_venta.id_venta'
+                )
+                ->where(
+                    'venta.id_viaje',
+                    $idViaje
+                )
+                ->whereIn(
+                    'venta.estado',
+                    [
+                        'Pendiente',
+                        'Pagada',
+                    ]
+                )
+                ->whereNull(
+                    'venta.deleted_at'
+                )
+                ->select(
+                    'detalle_venta.id_asiento',
+                    'detalle_venta.id as id_detalle_venta',
+                    'venta.id as id_venta',
+                    'venta.estado as estado_venta'
+                )
+                ->get();
 
-        $ocupaciones = [];
-        foreach ($detallesActivos as $detalle) {
-            $ocupaciones[$detalle->id_asiento] = [
-                'id_venta' => $detalle->id_venta,
-                'id_detalle_venta' => $detalle->id_detalle_venta,
-                'estado_venta' => $detalle->estado_venta,
+        $ocupaciones =
+            [];
+
+        foreach (
+            $detallesActivos
+            as $detalle
+        ) {
+            $ocupaciones[
+                $detalle->id_asiento
+            ] = [
+                'id_venta' =>
+                    $detalle
+                        ->id_venta,
+
+                'id_detalle_venta' =>
+                    $detalle
+                        ->id_detalle_venta,
+
+                'estado_venta' =>
+                    $detalle
+                        ->estado_venta,
             ];
         }
 
-        $resultado = [];
+        $resultado =
+            [];
 
-        foreach ($vehiculo->pisos as $piso) {
+        foreach (
+            $vehiculo->pisos
+            as $piso
+        ) {
             $pisoData = [
-                'id' => $piso->id,
-                'nombre' => $piso->nombre,
-                'numero' => $piso->numero,
-                'asientos' => [],
+                'id' =>
+                    $piso->id,
+
+                'nombre' =>
+                    $piso->nombre,
+
+                'numero' =>
+                    $piso->numero,
+
+                'asientos' =>
+                    [],
             ];
 
-            foreach ($piso->asientos as $asiento) {
-                $estadoOcupacion = 'libre';
-                $idVenta = null;
-                $idDetalleVenta = null;
+            foreach (
+                $piso->asientos
+                as $asiento
+            ) {
+                $estadoOcupacion =
+                    'libre';
 
-                if ($asiento->tipo_celda !== 'pasajero') {
-                    $estadoOcupacion = 'no_disponible';
-                } elseif (isset($ocupaciones[$asiento->id])) {
-                    $estadoOcupacion = $ocupaciones[$asiento->id]['estado_venta'] === 'Pendiente'
-                        ? 'reservado'
-                        : 'vendido';
-                    $idVenta = $ocupaciones[$asiento->id]['id_venta'];
-                    $idDetalleVenta = $ocupaciones[$asiento->id]['id_detalle_venta'];
+                $idVenta =
+                    null;
+
+                $idDetalleVenta =
+                    null;
+
+                if (
+                    $asiento->tipo_celda !==
+                    'pasajero'
+                ) {
+                    $estadoOcupacion =
+                        'no_disponible';
+                } elseif (
+                    isset(
+                        $ocupaciones[
+                            $asiento->id
+                        ]
+                    )
+                ) {
+                    $estadoOcupacion =
+                        $ocupaciones[
+                            $asiento->id
+                        ][
+                            'estado_venta'
+                        ] ===
+                        'Pendiente'
+                            ? 'reservado'
+                            : 'vendido';
+
+                    $idVenta =
+                        $ocupaciones[
+                            $asiento->id
+                        ][
+                            'id_venta'
+                        ];
+
+                    $idDetalleVenta =
+                        $ocupaciones[
+                            $asiento->id
+                        ][
+                            'id_detalle_venta'
+                        ];
                 }
 
-                $pisoData['asientos'][] = [
-                    'id' => $asiento->id,
-                    'fila' => $asiento->fila,
-                    'columna' => $asiento->columna,
-                    'tipo_celda' => $asiento->tipo_celda,
-                    'numero_asiento' => $asiento->numero_asiento,
-                    'estado' => $asiento->estado,
-                    'estado_ocupacion' => $estadoOcupacion,
-                    'id_venta' => $idVenta,
-                    'id_detalle_venta' => $idDetalleVenta,
+                $pisoData[
+                    'asientos'
+                ][] = [
+                    'id' =>
+                        $asiento->id,
+
+                    'fila' =>
+                        $asiento->fila,
+
+                    'columna' =>
+                        $asiento->columna,
+
+                    'tipo_celda' =>
+                        $asiento->tipo_celda,
+
+                    'numero_asiento' =>
+                        $asiento->numero_asiento,
+
+                    'estado' =>
+                        $asiento->estado,
+
+                    'estado_ocupacion' =>
+                        $estadoOcupacion,
+
+                    'id_venta' =>
+                        $idVenta,
+
+                    'id_detalle_venta' =>
+                        $idDetalleVenta,
                 ];
             }
 
-            $resultado[] = $pisoData;
+            $resultado[] =
+                $pisoData;
         }
 
         return $resultado;
@@ -219,364 +965,833 @@ class VentaService
     // VENTAS
     // ─────────────────────────────────────────────────────────────
 
-    public function iniciarVenta(int $idViaje, array $asientos, int $userId): Venta
-    {
-        $viaje = Viaje::query()
-            ->with('vehiculoChoferRuta.asignacion')
-            ->findOrFail($idViaje);
+    public function iniciarVenta(
+        int $idViaje,
+        array $asientos,
+        int $userId
+    ): Venta {
+        $viaje =
+            Viaje::query()
+                ->with(
+                    'vehiculoChoferRuta.asignacion'
+                )
+                ->findOrFail(
+                    $idViaje
+                );
 
-        $this->validarPropietarioViaje($viaje);
+        $this->validarPropietarioViaje(
+            $viaje
+        );
 
-        if ($viaje->estado !== 'Vendiendo') {
-            throw new RuntimeException('El viaje no está en estado Vendiendo.');
+        if (
+            $viaje->estado !==
+            'Vendiendo'
+        ) {
+            throw new RuntimeException(
+                'El viaje no está en estado Vendiendo.'
+            );
         }
 
-        return DB::transaction(function () use ($idViaje, $asientos, $userId) {
-            foreach ($asientos as $asientoData) {
-                $asientoId = $asientoData['id_asiento'];
-                $ocupado = DetalleVenta::query()
-                    ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
-                    ->where('venta.id_viaje', $idViaje)
-                    ->whereIn('venta.estado', ['Pendiente', 'Pagada'])
-                    ->whereNull('venta.deleted_at')
-                    ->where('detalle_venta.id_asiento', $asientoId)
-                    ->exists();
+        return DB::transaction(
+            function () use (
+                $idViaje,
+                $asientos,
+                $userId
+            ) {
+                foreach (
+                    $asientos
+                    as $asientoData
+                ) {
+                    $asientoId =
+                        $asientoData[
+                            'id_asiento'
+                        ];
 
-                if ($ocupado) {
-                    throw new RuntimeException("El asiento {$asientoId} ya está ocupado.");
+                    $ocupado =
+                        DetalleVenta::query()
+                            ->join(
+                                'venta',
+                                'venta.id',
+                                '=',
+                                'detalle_venta.id_venta'
+                            )
+                            ->where(
+                                'venta.id_viaje',
+                                $idViaje
+                            )
+                            ->whereIn(
+                                'venta.estado',
+                                [
+                                    'Pendiente',
+                                    'Pagada',
+                                ]
+                            )
+                            ->whereNull(
+                                'venta.deleted_at'
+                            )
+                            ->where(
+                                'detalle_venta.id_asiento',
+                                $asientoId
+                            )
+                            ->exists();
+
+                    if (
+                        $ocupado
+                    ) {
+                        throw new RuntimeException(
+                            "El asiento {$asientoId} ya está ocupado."
+                        );
+                    }
                 }
-            }
 
-            $venta = Venta::query()->create([
-                'id_viaje' => $idViaje,
-                'id_user' => $userId,
-                'estado' => 'Pendiente',
-                'precio_total' => 0,
-            ]);
+                $venta =
+                    Venta::query()
+                        ->create([
+                            'id_viaje' =>
+                                $idViaje,
 
-            $precioTotal = 0;
-            foreach ($asientos as $asientoData) {
-                $precio = (float) $asientoData['precio_unitario'];
-                $venta->detalles()->create([
-                    'id_asiento' => $asientoData['id_asiento'],
-                    'precio_unitario' => $precio,
+                            'id_user' =>
+                                $userId,
+
+                            'estado' =>
+                                'Pendiente',
+
+                            'precio_total' =>
+                                0,
+                        ]);
+
+                $precioTotal =
+                    0;
+
+                foreach (
+                    $asientos
+                    as $asientoData
+                ) {
+                    $precio =
+                        (float)
+                        $asientoData[
+                            'precio_unitario'
+                        ];
+
+                    $venta
+                        ->detalles()
+                        ->create([
+                            'id_asiento' =>
+                                $asientoData[
+                                    'id_asiento'
+                                ],
+
+                            'precio_unitario' =>
+                                $precio,
+                        ]);
+
+                    $precioTotal +=
+                        $precio;
+                }
+
+                $venta->update([
+                    'precio_total' =>
+                        $precioTotal,
                 ]);
-                $precioTotal += $precio;
+
+                return $venta->load([
+                    'detalles.asiento',
+                    'detalles.pasajero',
+                ]);
             }
-
-            $venta->update(['precio_total' => $precioTotal]);
-
-            return $venta->load(['detalles.asiento', 'detalles.pasajero']);
-        });
+        );
     }
+
     /**
      * Asigna o actualiza un pasajero en un detalle de venta.
      */
-    public function asignarPasajero(int $detalleId, array $datosPasajero): DetalleVenta
-    {
-        $detalle = DetalleVenta::query()->findOrFail($detalleId);
+    public function asignarPasajero(
+        int $detalleId,
+        array $datosPasajero
+    ): DetalleVenta {
+        $detalle =
+            DetalleVenta::query()
+                ->findOrFail(
+                    $detalleId
+                );
 
-        DB::transaction(function () use ($detalle, $datosPasajero) {
-            if ($detalle->id_pasajero) {
-                $pasajero = Pasajero::query()->findOrFail($detalle->id_pasajero);
-                $pasajero->update($datosPasajero);
-            } else {
-                $pasajero = Pasajero::query()->create($datosPasajero);
-                $detalle->update(['id_pasajero' => $pasajero->id]);
+        DB::transaction(
+            function () use (
+                $detalle,
+                $datosPasajero
+            ) {
+                if (
+                    $detalle->id_pasajero
+                ) {
+                    $pasajero =
+                        Pasajero::query()
+                            ->findOrFail(
+                                $detalle
+                                    ->id_pasajero
+                            );
+
+                    $pasajero->update(
+                        $datosPasajero
+                    );
+                } else {
+                    $pasajero =
+                        Pasajero::query()
+                            ->create(
+                                $datosPasajero
+                            );
+
+                    $detalle->update([
+                        'id_pasajero' =>
+                            $pasajero->id,
+                    ]);
+                }
             }
-        });
+        );
 
-        return $detalle->fresh('pasajero');
+        return $detalle->fresh(
+            'pasajero'
+        );
     }
-    public function confirmarVenta(int $ventaId, string $formaPago, array $pasajeros): Venta
-    {
-        $venta = Venta::query()
-            ->with(['detalles', 'viaje.vehiculoChoferRuta.asignacion'])
-            ->findOrFail($ventaId);
 
-        $this->validarPropietarioVenta($venta);
+    public function confirmarVenta(
+        int $ventaId,
+        string $formaPago,
+        array $pasajeros
+    ): Venta {
+        $venta =
+            Venta::query()
+                ->with([
+                    'detalles',
+                    'viaje.vehiculoChoferRuta.asignacion',
+                ])
+                ->findOrFail(
+                    $ventaId
+                );
 
-        if ($venta->estado !== 'Pendiente') {
-            throw new RuntimeException('Solo se puede confirmar una venta pendiente.');
+        $this->validarPropietarioVenta(
+            $venta
+        );
+
+        if (
+            $venta->estado !==
+            'Pendiente'
+        ) {
+            throw new RuntimeException(
+                'Solo se puede confirmar una venta pendiente.'
+            );
         }
 
-        // Normaliza ANTES de la transacción: si el valor no es
-        // soportado por el módulo de arqueo, la venta no se toca.
-        $tipoPago = $this->normalizarFormaPago($formaPago);
+        /*
+         * Normaliza ANTES de la transacción.
+         */
+        $tipoPago =
+            $this->normalizarFormaPago(
+                $formaPago
+            );
 
-        DB::transaction(function () use ($venta, $formaPago, $tipoPago, $pasajeros) {
-            $detallesVenta = $venta->detalles->keyBy('id');
+        DB::transaction(
+            function () use (
+                $venta,
+                $formaPago,
+                $tipoPago,
+                $pasajeros
+            ) {
+                $detallesVenta =
+                    $venta
+                        ->detalles
+                        ->keyBy(
+                            'id'
+                        );
 
-            foreach ($pasajeros as $datosPasajero) {
-                if (!$detallesVenta->has($datosPasajero['id_detalle_venta'])) {
-                    throw new RuntimeException("El detalle {$datosPasajero['id_detalle_venta']} no pertenece a esta venta.");
+                foreach (
+                    $pasajeros
+                    as $datosPasajero
+                ) {
+                    if (
+                        !$detallesVenta->has(
+                            $datosPasajero[
+                                'id_detalle_venta'
+                            ]
+                        )
+                    ) {
+                        throw new RuntimeException(
+                            "El detalle {$datosPasajero['id_detalle_venta']} no pertenece a esta venta."
+                        );
+                    }
                 }
+
+                foreach (
+                    $pasajeros
+                    as $datosPasajero
+                ) {
+                    $detalle =
+                        $detallesVenta->get(
+                            $datosPasajero[
+                                'id_detalle_venta'
+                            ]
+                        );
+
+                    $pasajeroData = [
+                        'nombres' =>
+                            $datosPasajero[
+                                'nombres'
+                            ],
+
+                        'apellido_paterno' =>
+                            $datosPasajero[
+                                'apellido_paterno'
+                            ],
+
+                        'apellido_materno' =>
+                            $datosPasajero[
+                                'apellido_materno'
+                            ]
+                            ?? null,
+
+                        'ci' =>
+                            $datosPasajero[
+                                'ci'
+                            ]
+                            ?? null,
+                    ];
+
+                    if (
+                        $detalle->id_pasajero
+                    ) {
+                        $pasajero =
+                            Pasajero::query()
+                                ->findOrFail(
+                                    $detalle
+                                        ->id_pasajero
+                                );
+
+                        $pasajero->update(
+                            $pasajeroData
+                        );
+                    } else {
+                        $pasajero =
+                            Pasajero::query()
+                                ->create(
+                                    $pasajeroData
+                                );
+                    }
+
+                    $precioUnitario =
+                        isset(
+                            $datosPasajero[
+                                'precio_unitario'
+                            ]
+                        )
+                            ? (float)
+                            $datosPasajero[
+                                'precio_unitario'
+                            ]
+                            : (float)
+                            $detalle
+                                ->precio_unitario;
+
+                    $detalle->update([
+                        'id_pasajero' =>
+                            $pasajero->id,
+
+                        'precio_unitario' =>
+                            $precioUnitario,
+                    ]);
+                }
+
+                $venta->update([
+                    'estado' =>
+                        'Pagada',
+
+                    'forma_pago' =>
+                        $formaPago,
+
+                    'precio_total' =>
+                        $venta
+                            ->detalles()
+                            ->sum(
+                                'precio_unitario'
+                            ),
+                ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | REGISTRO DEL INGRESO EN CAJA
+                |--------------------------------------------------------------------------
+                */
+
+                $this->arqueoService
+                    ->registrarIngreso(
+                        idUser:
+                            (int)
+                            $venta
+                                ->id_user,
+
+                        tipoTransaccion:
+                            'VPASAJE',
+
+                        monto:
+                            (float)
+                            $venta
+                                ->precio_total,
+
+                        tipoPago:
+                            $tipoPago,
+
+                        detalle:
+                            $this
+                                ->construirDetalleIngreso(
+                                    $venta
+                                ),
+
+                        nombreTipoTransaccion:
+                            'Venta de pasaje',
+                    );
             }
+        );
 
-            foreach ($pasajeros as $datosPasajero) {
-                $detalle = $detallesVenta->get($datosPasajero['id_detalle_venta']);
+        return $venta
+            ->fresh()
+            ->load([
+                'detalles.asiento',
+                'detalles.pasajero',
+                'viaje.vehiculoChoferRuta.ruta',
+            ]);
+    }
 
-                $pasajeroData = [
-                    'nombres' => $datosPasajero['nombres'],
-                    'apellido_paterno' => $datosPasajero['apellido_paterno'],
-                    'apellido_materno' => $datosPasajero['apellido_materno'] ?? null,
-                    'ci' => $datosPasajero['ci'] ?? null,
-                ];
+    public function cancelarVenta(
+        int $ventaId
+    ): void {
+        $venta =
+            Venta::query()
+                ->with(
+                    'viaje.vehiculoChoferRuta.asignacion'
+                )
+                ->findOrFail(
+                    $ventaId
+                );
 
-                if ($detalle->id_pasajero) {
-                    $pasajero = Pasajero::query()->findOrFail($detalle->id_pasajero);
-                    $pasajero->update($pasajeroData);
-                } else {
-                    $pasajero = Pasajero::query()->create($pasajeroData);
-                }
+        $this->validarPropietarioVenta(
+            $venta
+        );
 
-                $precioUnitario = isset($datosPasajero['precio_unitario'])
-                    ? (float) $datosPasajero['precio_unitario']
-                    : (float) $detalle->precio_unitario;
+        if (
+            $venta->estado !==
+            'Pendiente'
+        ) {
+            throw new RuntimeException(
+                'Solo se puede cancelar una venta pendiente.'
+            );
+        }
 
-                $detalle->update([
-                    'id_pasajero' => $pasajero->id,
-                    'precio_unitario' => $precioUnitario,
+        DB::transaction(
+            function () use (
+                $venta
+            ) {
+                $venta
+                    ->detalles()
+                    ->delete();
+
+                $venta->update([
+                    'estado' =>
+                        'Anulada',
                 ]);
             }
+        );
+    }
 
-            $venta->update([
-                'estado' => 'Pagada',
-                'forma_pago' => $formaPago,
-                'precio_total' => $venta->detalles()->sum('precio_unitario'),
-            ]);
+    public function anularVenta(
+        int $ventaId
+    ): void {
+        $venta =
+            Venta::query()
+                ->with(
+                    'viaje.vehiculoChoferRuta.asignacion'
+                )
+                ->findOrFail(
+                    $ventaId
+                );
 
-            // ─── Registro del ingreso en caja ────────────────────
-            // Se ejecuta DENTRO de la misma transacción: si falla,
-            // la venta no se confirma.
-            $this->arqueoService->registrarIngreso(
-                idUser: (int) $venta->id_user,
-                tipoTransaccion: 'VPASAJE',
-                monto: (float) $venta->precio_total,
-                tipoPago: $tipoPago,
-                detalle: $this->construirDetalleIngreso($venta),
-                nombreTipoTransaccion: 'Venta de pasaje',
+        $this->validarPropietarioVenta(
+            $venta
+        );
+
+        if (
+            $venta->estado ===
+            'Anulada'
+        ) {
+            throw new RuntimeException(
+                'La venta ya está anulada.'
             );
-        });
-
-        return $venta->fresh()->load([
-            'detalles.asiento',
-            'detalles.pasajero',
-            'viaje.vehiculoChoferRuta.ruta',
-        ]);
-    }
-
-    public function cancelarVenta(int $ventaId): void
-    {
-        $venta = Venta::query()
-            ->with('viaje.vehiculoChoferRuta.asignacion')
-            ->findOrFail($ventaId);
-
-        $this->validarPropietarioVenta($venta);
-
-        if ($venta->estado !== 'Pendiente') {
-            throw new RuntimeException('Solo se puede cancelar una venta pendiente.');
         }
 
-        DB::transaction(function () use ($venta) {
-            $venta->detalles()->delete();
-            $venta->update(['estado' => 'Anulada']);
-        });
-    }
+        DB::transaction(
+            function () use (
+                $venta
+            ) {
+                /*
+                 * Anular el ingreso asociado.
+                 */
+                $this
+                    ->anularIngresoDeVenta(
+                        $venta
+                    );
 
-    public function anularVenta(int $ventaId): void
-    {
-        $venta = Venta::query()
-            ->with('viaje.vehiculoChoferRuta.asignacion')
-            ->findOrFail($ventaId);
+                $venta
+                    ->detalles()
+                    ->delete();
 
-        $this->validarPropietarioVenta($venta);
+                $venta->update([
+                    'estado' =>
+                        'Anulada',
+                ]);
 
-        if ($venta->estado === 'Anulada') {
-            throw new RuntimeException('La venta ya está anulada.');
-        }
-
-        DB::transaction(function () use ($venta) {
-            // Anular el ingreso asociado (si existe y está válido).
-            $this->anularIngresoDeVenta($venta);
-
-            $venta->detalles()->delete();
-            $venta->update(['estado' => 'Anulada']);
-            $venta->delete();
-        });
-    }
-
-    public function eliminarDetalle(int $detalleId): void
-    {
-        $detalle = DetalleVenta::query()
-            ->with('venta.viaje.vehiculoChoferRuta.asignacion')
-            ->findOrFail($detalleId);
-
-        $venta = $detalle->venta;
-
-        $this->validarPropietarioVenta($venta);
-
-        if ($venta->estado === 'Anulada') {
-            throw new RuntimeException('La venta ya está anulada.');
-        }
-
-        DB::transaction(function () use ($detalle, $venta) {
-            $detalle->delete();
-
-            $restantes = $venta->detalles()->count();
-            if ($restantes === 0) {
-                $venta->update(['estado' => 'Anulada']);
                 $venta->delete();
-            } else {
-                $venta->update(['precio_total' => $venta->detalles()->sum('precio_unitario')]);
             }
-        });
+        );
     }
 
-    public function cambiarAsiento(int $detalleId, int $nuevoAsientoId): DetalleVenta
-    {
-        $detalle = DetalleVenta::query()
-            ->with('venta.viaje.vehiculoChoferRuta.asignacion')
-            ->findOrFail($detalleId);
+    public function eliminarDetalle(
+        int $detalleId
+    ): void {
+        $detalle =
+            DetalleVenta::query()
+                ->with(
+                    'venta.viaje.vehiculoChoferRuta.asignacion'
+                )
+                ->findOrFail(
+                    $detalleId
+                );
 
-        $venta = $detalle->venta;
+        $venta =
+            $detalle->venta;
 
-        $this->validarPropietarioVenta($venta);
+        $this->validarPropietarioVenta(
+            $venta
+        );
 
-        if ($venta->estado === 'Anulada') {
-            throw new RuntimeException('No se puede cambiar asiento en una venta anulada.');
+        if (
+            $venta->estado ===
+            'Anulada'
+        ) {
+            throw new RuntimeException(
+                'La venta ya está anulada.'
+            );
         }
 
-        $ocupado = DetalleVenta::query()
-            ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
-            ->where('venta.id_viaje', $venta->id_viaje)
-            ->whereIn('venta.estado', ['Pendiente', 'Pagada'])
-            ->whereNull('venta.deleted_at')
-            ->where('detalle_venta.id_asiento', $nuevoAsientoId)
-            ->where('detalle_venta.id', '!=', $detalle->id)
-            ->exists();
+        DB::transaction(
+            function () use (
+                $detalle,
+                $venta
+            ) {
+                $detalle->delete();
 
-        if ($ocupado) {
-            throw new RuntimeException('El asiento seleccionado ya está ocupado.');
+                $restantes =
+                    $venta
+                        ->detalles()
+                        ->count();
+
+                if (
+                    $restantes ===
+                    0
+                ) {
+                    $venta->update([
+                        'estado' =>
+                            'Anulada',
+                    ]);
+
+                    $venta->delete();
+                } else {
+                    $venta->update([
+                        'precio_total' =>
+                            $venta
+                                ->detalles()
+                                ->sum(
+                                    'precio_unitario'
+                                ),
+                    ]);
+                }
+            }
+        );
+    }
+
+    public function cambiarAsiento(
+        int $detalleId,
+        int $nuevoAsientoId
+    ): DetalleVenta {
+        $detalle =
+            DetalleVenta::query()
+                ->with(
+                    'venta.viaje.vehiculoChoferRuta.asignacion'
+                )
+                ->findOrFail(
+                    $detalleId
+                );
+
+        $venta =
+            $detalle->venta;
+
+        $this->validarPropietarioVenta(
+            $venta
+        );
+
+        if (
+            $venta->estado ===
+            'Anulada'
+        ) {
+            throw new RuntimeException(
+                'No se puede cambiar asiento en una venta anulada.'
+            );
         }
 
-        $detalle->update(['id_asiento' => $nuevoAsientoId]);
+        $ocupado =
+            DetalleVenta::query()
+                ->join(
+                    'venta',
+                    'venta.id',
+                    '=',
+                    'detalle_venta.id_venta'
+                )
+                ->where(
+                    'venta.id_viaje',
+                    $venta->id_viaje
+                )
+                ->whereIn(
+                    'venta.estado',
+                    [
+                        'Pendiente',
+                        'Pagada',
+                    ]
+                )
+                ->whereNull(
+                    'venta.deleted_at'
+                )
+                ->where(
+                    'detalle_venta.id_asiento',
+                    $nuevoAsientoId
+                )
+                ->where(
+                    'detalle_venta.id',
+                    '!=',
+                    $detalle->id
+                )
+                ->exists();
 
-        return $detalle->fresh('asiento');
+        if (
+            $ocupado
+        ) {
+            throw new RuntimeException(
+                'El asiento seleccionado ya está ocupado.'
+            );
+        }
+
+        $detalle->update([
+            'id_asiento' =>
+                $nuevoAsientoId,
+        ]);
+
+        return $detalle->fresh(
+            'asiento'
+        );
     }
 
     // ─────────────────────────────────────────────────────────────
     // REIMPRESIÓN / PDF
     // ─────────────────────────────────────────────────────────────
 
-    public function obtenerVenta(int $ventaId): Venta
-    {
-        $venta = Venta::query()
-            ->with([
-                'detalles.pasajero',
-                'detalles.asiento',
-                'viaje.vehiculoChoferRuta.ruta',
-                'viaje.vehiculoChoferRuta.asignacion.vehiculo',
-                'viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
-                'viaje.vehiculoChoferRuta.asignacion',
-            ])
-            ->findOrFail($ventaId);
+    public function obtenerVenta(
+        int $ventaId
+    ): Venta {
+        $venta =
+            Venta::query()
+                ->with([
+                    'detalles.pasajero',
+                    'detalles.asiento',
+                    'viaje.vehiculoChoferRuta.ruta',
+                    'viaje.vehiculoChoferRuta.asignacion.vehiculo',
+                    'viaje.vehiculoChoferRuta.asignacion.chofer.usuario',
+                    'viaje.vehiculoChoferRuta.asignacion',
+                ])
+                ->findOrFail(
+                    $ventaId
+                );
 
-        $this->validarPropietarioVenta($venta);
+        $this->validarPropietarioVenta(
+            $venta
+        );
 
         return $venta;
     }
 
-    public function generarPdfVenta(int $ventaId): \Barryvdh\DomPDF\PDF
-    {
-        $venta = $this->obtenerVenta($ventaId);
-        $qrData = $this->qrService->generateQrImage($ventaId);
+    public function generarPdfVenta(
+        int $ventaId
+    ): \Barryvdh\DomPDF\PDF {
+        $venta =
+            $this->obtenerVenta(
+                $ventaId
+            );
 
-        return Pdf::loadView('pasajes.ticket', [
-            'venta' => $venta,
-            'qrData' => $qrData,
-        ]);
+        $qrData =
+            $this->qrService
+                ->generateQrImage(
+                    $ventaId
+                );
+
+        return Pdf::loadView(
+            'pasajes.ticket',
+            [
+                'venta' =>
+                    $venta,
+
+                'qrData' =>
+                    $qrData,
+            ]
+        );
     }
 
-    public function generarQrData(int $ventaId): string
-    {
-        return $this->qrService->generateQrImage($ventaId);
+    public function generarQrData(
+        int $ventaId
+    ): string {
+        return $this->qrService
+            ->generateQrImage(
+                $ventaId
+            );
     }
+
     // ─────────────────────────────────────────────────────────────
     // INTEGRACIÓN CON ARQUEO
     // ─────────────────────────────────────────────────────────────
 
     /**
      * Detalle canónico del ingreso asociado a una venta.
-     * Se usa el mismo formato en creación y en búsqueda, para poder
-     * localizar el ingreso desde `anularVenta()` sin columna FK.
      */
-    private function construirDetalleIngreso(Venta $venta): string
-    {
-        return sprintf('Venta #%d - Viaje #%d', $venta->id, $venta->id_viaje);
+    private function construirDetalleIngreso(
+        Venta $venta
+    ): string {
+        return sprintf(
+            'Venta #%d - Viaje #%d',
+            $venta->id,
+            $venta->id_viaje
+        );
     }
 
     /**
      * Anula el ingreso válido asociado a la venta.
-     *
-     * Si la venta fue creada ANTES de integrar el arqueo, no
-     * habrá ingreso asociado — en ese caso no hace nada.
      */
-    private function anularIngresoDeVenta(Venta $venta): void
-    {
-        $ingreso = Ingreso::query()
-            ->where('id_user', $venta->id_user)
-            ->where('detalle', $this->construirDetalleIngreso($venta))
-            ->where('estado', 'Valido')
-            ->latest('id')
-            ->first();
+    private function anularIngresoDeVenta(
+        Venta $venta
+    ): void {
+        $ingreso =
+            Ingreso::query()
+                ->where(
+                    'id_user',
+                    $venta->id_user
+                )
+                ->where(
+                    'detalle',
+                    $this->construirDetalleIngreso(
+                        $venta
+                    )
+                )
+                ->where(
+                    'estado',
+                    'Valido'
+                )
+                ->latest(
+                    'id'
+                )
+                ->first();
 
-        if (!$ingreso) {
+        if (
+            !$ingreso
+        ) {
             return;
         }
 
-        $this->arqueoService->anularIngreso($ingreso);
+        $this->arqueoService
+            ->anularIngreso(
+                $ingreso
+            );
     }
 
     /**
-     * Normaliza el valor libre de `forma_pago` al enum cerrado de
-     * `ingreso.tipo_pago` / `egreso.tipo_pago`.
-     *
-     * @throws RuntimeException si no se puede mapear.
+     * Normaliza forma de pago al enum del módulo de arqueo.
      */
-    private function normalizarFormaPago(string $formaPago): string
-    {
-        $clave = mb_strtolower(trim($formaPago));
+    private function normalizarFormaPago(
+        string $formaPago
+    ): string {
+        $clave =
+            mb_strtolower(
+                trim(
+                    $formaPago
+                )
+            );
 
         $mapa = [
-            'efectivo' => 'Efectivo',
-            'cash' => 'Efectivo',
+            'efectivo' =>
+                'Efectivo',
 
-            'tarjeta' => 'Tarjeta',
-            'tarjeta de credito' => 'Tarjeta',
-            'tarjeta de crédito' => 'Tarjeta',
-            'tarjeta de debito' => 'Tarjeta',
-            'tarjeta de débito' => 'Tarjeta',
-            'credito' => 'Tarjeta',
-            'crédito' => 'Tarjeta',
-            'debito' => 'Tarjeta',
-            'débito' => 'Tarjeta',
-            'card' => 'Tarjeta',
+            'cash' =>
+                'Efectivo',
 
-            'qr' => 'QR',
+            'tarjeta' =>
+                'Tarjeta',
 
-            'transferencia' => 'Transferencia',
-            'transferencia bancaria' => 'Transferencia',
-            'transfer' => 'Transferencia',
+            'tarjeta de credito' =>
+                'Tarjeta',
+
+            'tarjeta de crédito' =>
+                'Tarjeta',
+
+            'tarjeta de debito' =>
+                'Tarjeta',
+
+            'tarjeta de débito' =>
+                'Tarjeta',
+
+            'credito' =>
+                'Tarjeta',
+
+            'crédito' =>
+                'Tarjeta',
+
+            'debito' =>
+                'Tarjeta',
+
+            'débito' =>
+                'Tarjeta',
+
+            'card' =>
+                'Tarjeta',
+
+            'qr' =>
+                'QR',
+
+            'transferencia' =>
+                'Transferencia',
+
+            'transferencia bancaria' =>
+                'Transferencia',
+
+            'transfer' =>
+                'Transferencia',
         ];
 
-        if (isset($mapa[$clave])) {
-            return $mapa[$clave];
+        if (
+            isset(
+                $mapa[
+                    $clave
+                ]
+            )
+        ) {
+            return $mapa[
+                $clave
+            ];
         }
 
         throw new RuntimeException(
-            "Forma de pago '{$formaPago}' no soportada por el módulo de arqueo. "
-            . "Use uno de: Efectivo, Tarjeta, QR, Transferencia."
+            "Forma de pago '{$formaPago}' no soportada por el módulo de arqueo. " .
+            'Use uno de: Efectivo, Tarjeta, QR, Transferencia.'
         );
     }
 }
