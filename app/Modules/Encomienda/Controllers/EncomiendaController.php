@@ -6,6 +6,7 @@ namespace App\Modules\Encomienda\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Encomienda\Requests\AsignarEncomiendaRequest;
+use App\Modules\Encomienda\Requests\CambiarEstadoEncomiendaRequest;
 use App\Modules\Encomienda\Requests\EntregarEncomiendaRequest;
 use App\Modules\Encomienda\Requests\EscanearEncomiendaQrRequest;
 use App\Modules\Encomienda\Requests\ListarEncomiendasRequest;
@@ -232,6 +233,27 @@ class EncomiendaController extends Controller
                 )->resolve(
                     $request
                 ),
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMBIAR ESTADO LOGÍSTICO
+    |--------------------------------------------------------------------------
+    */
+
+    public function cambiarEstado(
+        CambiarEstadoEncomiendaRequest $request,
+        int $encomienda
+    ): JsonResponse {
+        $item = $this->service->cambiarEstado(
+            $encomienda,
+            (string) $request->validated('estado')
+        );
+
+        return response()->json([
+            'message' => 'Estado de la encomienda actualizado correctamente.',
+            'encomienda' => (new EncomiendaResource($item))->resolve($request),
         ]);
     }
 
