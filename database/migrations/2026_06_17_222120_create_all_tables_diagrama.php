@@ -280,6 +280,7 @@ return new class extends Migration {
                 'Efectivo',
                 'Tarjeta',
                 'QR',
+                'Transferencia',
             ]);
 
             $table->dateTime('fecha_registro');
