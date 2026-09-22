@@ -47,7 +47,9 @@ class EncomiendaService
 
     private function queryViajesPermitidos(): Builder
     {
-        $q = Viaje::query()->with(['vehiculoChoferRuta.ruta', 'vehiculoChoferRuta.asignacion.chofer.usuario', 'vehiculoChoferRuta.asignacion.vehiculo']);
+        $q = Viaje::query()
+            ->where('estado', 'Vendiendo')
+            ->with(['vehiculoChoferRuta.ruta', 'vehiculoChoferRuta.asignacion.chofer.usuario', 'vehiculoChoferRuta.asignacion.vehiculo']);
         $id = $this->choferContext->idChoferActual();
         if ($id !== null)
             $q->whereHas('vehiculoChoferRuta.asignacion', fn(Builder $a) => $a->where('id_chofer', $id));
@@ -57,6 +59,15 @@ class EncomiendaService
     private function viaje(int $id): Viaje
     {
         return $this->queryViajesPermitidos()->findOrFail($id);
+    }
+
+    private function estadoEncomiendaSegunViaje(Viaje $viaje): string
+    {
+        return match ($viaje->estado) {
+            'En curso' => 'En tránsito',
+            'Finalizado' => 'En destino',
+            default => 'En origen',
+        };
     }
 
     public function listar(array $f = [], int $per = 15): LengthAwarePaginator
@@ -127,76 +138,248 @@ class EncomiendaService
 
     public function crear(array $data): Encomienda
     {
-        return DB::transaction(function () use ($data) {
+        /*
+         * IMPORTANTE:
+         * La transacción debe contener únicamente las escrituras y validaciones
+         * necesarias. La versión anterior hacía dos cargas completas de todas
+         * las relaciones (`fresh($this->relaciones())` y luego `obtener()`)
+         * antes de confirmar la transacción. Con una BD remota eso multiplicaba
+         * las consultas y podía superar el max_execution_time de PHP.
+         */
+        $idEncomienda = DB::transaction(function () use ($data): int {
             $v = $this->viaje((int) $data['id_viaje']);
-            if (!$v->vehiculoChoferRuta?->ruta)
-                throw ValidationException::withMessages(['id_viaje' => 'El viaje seleccionado no tiene una ruta asignada.']);
+
+            if (!$v->vehiculoChoferRuta?->ruta) {
+                throw ValidationException::withMessages([
+                    'id_viaje' => 'El viaje seleccionado no tiene una ruta asignada.',
+                ]);
+            }
+
             $idUser = (int) Auth::id();
-            if ($idUser <= 0)
-                throw ValidationException::withMessages(['usuario' => 'No se pudo identificar al usuario que registra la encomienda.']);
-            [$sub, $desc, $total] = $this->importes($data['detalles'], (float) ($data['descuento'] ?? 0));
-            $e = Encomienda::query()->create(['guia' => null, 'qr_token' => Str::random(64), 'id_remitente' => (int) $data['id_remitente'], 'id_destinatario' => (int) $data['id_destinatario'], 'id_user_registro' => $idUser, 'concepto' => $data['concepto'] ?? null, 'subtotal' => $sub, 'descuento' => $desc, 'total' => $total, 'lugar_pago' => $data['lugar_pago'], 'estado_pago' => $data['estado_pago'], 'tipo_pago' => $data['estado_pago'] === 'Pagado' ? ($data['tipo_pago'] ?? null) : null, 'estado' => 'En origen']);
+
+            if ($idUser <= 0) {
+                throw ValidationException::withMessages([
+                    'usuario' => 'No se pudo identificar al usuario que registra la encomienda.',
+                ]);
+            }
+
+            [$sub, $desc, $total] = $this->importes(
+                $data['detalles'],
+                (float) ($data['descuento'] ?? 0),
+            );
+
+            if ($data['lugar_pago'] === 'Origen' && $data['estado_pago'] !== 'Pagado') {
+                throw ValidationException::withMessages([
+                    'estado_pago' => 'Una encomienda con pago en origen debe registrarse como pagada.',
+                ]);
+            }
+
+            if ($data['lugar_pago'] === 'Destino' && $data['estado_pago'] !== 'Pendiente') {
+                throw ValidationException::withMessages([
+                    'estado_pago' => 'Una encomienda con pago en destino debe registrarse inicialmente como pendiente.',
+                ]);
+            }
+
+            $e = Encomienda::query()->create([
+                'guia' => null,
+                'qr_token' => Str::random(64),
+                'id_remitente' => (int) $data['id_remitente'],
+                'id_destinatario' => (int) $data['id_destinatario'],
+                'id_user_registro' => $idUser,
+                'concepto' => $data['concepto'] ?? null,
+                'subtotal' => $sub,
+                'descuento' => $desc,
+                'total' => $total,
+                'lugar_pago' => $data['lugar_pago'],
+                'estado_pago' => $data['estado_pago'],
+                'tipo_pago' => $data['estado_pago'] === 'Pagado'
+                    ? ($data['tipo_pago'] ?? null)
+                    : null,
+                'estado' => $this->estadoEncomiendaSegunViaje($v),
+            ]);
+
+
             $e->guia = $this->generarGuia((int) $e->id);
             $e->save();
-            foreach ($data['detalles'] as $d)
-                $e->detalles()->create(['detalle' => trim($d['detalle']), 'cantidad' => (int) $d['cantidad'], 'precio_unitario' => (float) $d['precio_unitario']]);
-            ViajeEncomienda::query()->create(['id_viaje' => (int) $v->id, 'id_encomienda' => (int) $e->id]);
+
+            /*
+             * Insertar todos los detalles en una sola consulta.
+             * Antes se ejecutaba un INSERT por cada fila del detalle.
+             */
+            $ahora = now();
+            $filasDetalle = [];
+
+            foreach ($data['detalles'] as $d) {
+                $filasDetalle[] = [
+                    'id_encomienda' => (int) $e->id,
+                    'detalle' => trim($d['detalle']),
+                    'cantidad' => (int) $d['cantidad'],
+                    'precio_unitario' => (float) $d['precio_unitario'],
+                    'created_at' => $ahora,
+                    'updated_at' => $ahora,
+                ];
+            }
+
+            DB::table('detalle_encomienda')->insert($filasDetalle);
+
+            $viajeEncomienda = ViajeEncomienda::query()->create([
+                'id_viaje' => (int) $v->id,
+                'id_encomienda' => (int) $e->id,
+            ]);
+
+            /*
+             * Dejamos la relación disponible en memoria para que snapshot()
+             * obtenga id_viaje sin disparar otra consulta.
+             */
+            $e->setRelation('viajeEncomienda', $viajeEncomienda);
 
             // Ingreso en caja: solo si nace Pagado y tiene monto.
             if ($e->estado_pago === 'Pagado' && (float) $e->total > 0) {
                 $this->registrarIngresoEncomienda($e, $idUser);
             }
 
-            $this->audit->created('Encomienda', (int) $e->id, $this->snapshot($e->fresh($this->relaciones())));
-            return $this->obtener((int) $e->id);
+            /*
+             * La auditoría no necesita volver a consultar toda la encomienda.
+             * En este punto todos los campos usados por snapshot() ya están
+             * disponibles en memoria.
+             */
+            $this->audit->created(
+                'Encomienda',
+                (int) $e->id,
+                $this->snapshot($e),
+            );
+
+            return (int) $e->id;
         });
+
+        /*
+         * Cargar la respuesta completa UNA sola vez y, sobre todo, después
+         * del COMMIT. Así no mantenemos locks abiertos mientras Eloquent carga
+         * remitente, destinatario, detalles, viaje, ruta, chofer y vehículo.
+         */
+        return $this->obtener($idEncomienda);
     }
 
     public function actualizar(int $id, array $data): Encomienda
     {
         return DB::transaction(function () use ($id, $data) {
             $e = $this->obtener($id);
-            if ($e->estaAnulada() || $e->estaEntregada())
-                throw ValidationException::withMessages(['encomienda' => 'No se puede modificar una encomienda entregada o anulada.']);
 
-            // Capturamos el estado ANTES de aplicar cambios, para detectar transiciones.
-            $estadoPagoAntes = $e->estado_pago;
-            $totalAntes = (float) $e->total;
-
-            $before = $this->snapshot($e);
-            $fields = ['id_remitente', 'id_destinatario', 'concepto', 'descuento', 'lugar_pago', 'estado_pago', 'tipo_pago'];
-            foreach ($fields as $f)
-                if (array_key_exists($f, $data))
-                    $e->{$f} = $data[$f];
-            if ((int) $e->id_remitente === (int) $e->id_destinatario)
-                throw ValidationException::withMessages(['id_destinatario' => 'El remitente y el destinatario deben ser clientes diferentes.']);
-            if (($e->estado_pago ?? '') === 'Pendiente')
-                $e->tipo_pago = null;
-            if (($e->estado_pago ?? '') === 'Pagado' && empty($e->tipo_pago))
-                throw ValidationException::withMessages(['tipo_pago' => 'Debe indicar el tipo de pago cuando la encomienda está pagada.']);
             if (array_key_exists('detalles', $data)) {
-                $e->detalles()->delete();
-                foreach ($data['detalles'] as $d)
-                    $e->detalles()->create(['detalle' => trim($d['detalle']), 'cantidad' => (int) $d['cantidad'], 'precio_unitario' => (float) $d['precio_unitario']]);
-            }$e->load('detalles');
-            [$sub, $desc, $total] = $this->importes($e->detalles->map(fn($d) => ['cantidad' => $d->cantidad, 'precio_unitario' => $d->precio_unitario])->all(), (float) $e->descuento);
-            $e->subtotal = $sub;
-            $e->descuento = $desc;
+                throw ValidationException::withMessages([
+                    'detalles' => 'El detalle de una encomienda registrada no puede modificarse.',
+                ]);
+            }
+
+            if ($e->estaAnulada() || $e->estaEntregada()) {
+                throw ValidationException::withMessages([
+                    'encomienda' => 'No se puede modificar una encomienda entregada o anulada.',
+                ]);
+            }
+
+            $camposGenerales = ['id_remitente', 'id_destinatario', 'concepto', 'descuento', 'lugar_pago'];
+            $modificaDatosGenerales = collect($camposGenerales)->contains(fn (string $campo) => array_key_exists($campo, $data));
+            $modificaPago = array_key_exists('estado_pago', $data) || array_key_exists('tipo_pago', $data);
+
+            // Los datos generales quedan congelados al salir del origen.
+            if ($modificaDatosGenerales && !$e->estaEnOrigen()) {
+                throw ValidationException::withMessages([
+                    'encomienda' => 'Los datos generales solo pueden modificarse mientras la encomienda está en origen.',
+                ]);
+            }
+
+            // En destino solo se permite completar el cobro pendiente.
+            if ($modificaPago && !$e->estaEnOrigen() && !$e->estaEnDestino()) {
+                throw ValidationException::withMessages([
+                    'estado_pago' => 'El pago solo puede modificarse en origen o al llegar a destino.',
+                ]);
+            }
+
+            if ($e->estaEnDestino() && $modificaPago) {
+                if ($e->lugar_pago !== 'Destino') {
+                    throw ValidationException::withMessages([
+                        'estado_pago' => 'Esta encomienda no fue registrada para cobro en destino.',
+                    ]);
+                }
+                if (($data['estado_pago'] ?? $e->estado_pago) !== 'Pagado') {
+                    throw ValidationException::withMessages([
+                        'estado_pago' => 'En destino solo se permite confirmar el pago pendiente.',
+                    ]);
+                }
+            }
+
+            $estadoPagoAntes = (string) $e->estado_pago;
+            $tipoPagoAntes = $e->tipo_pago !== null ? (string) $e->tipo_pago : null;
+            $totalAntes = (float) $e->total;
+            $before = $this->snapshot($e);
+
+            foreach (['id_remitente', 'id_destinatario', 'concepto', 'descuento', 'lugar_pago', 'estado_pago', 'tipo_pago'] as $campo) {
+                if (array_key_exists($campo, $data)) {
+                    $e->{$campo} = $data[$campo];
+                }
+            }
+
+            if ((int) $e->id_remitente === (int) $e->id_destinatario) {
+                throw ValidationException::withMessages([
+                    'id_destinatario' => 'El remitente y el destinatario deben ser clientes diferentes.',
+                ]);
+            }
+
+            // Regla de negocio del lugar de pago.
+            if ($e->lugar_pago === 'Origen' && $e->estado_pago !== 'Pagado') {
+                throw ValidationException::withMessages([
+                    'estado_pago' => 'Una encomienda con pago en origen debe quedar pagada.',
+                ]);
+            }
+            if ($e->estaEnOrigen() && $e->lugar_pago === 'Destino' && $e->estado_pago !== 'Pendiente') {
+                throw ValidationException::withMessages([
+                    'estado_pago' => 'Mientras está en origen, una encomienda con cobro en destino debe permanecer pendiente.',
+                ]);
+            }
+
+            if ($e->estado_pago === 'Pendiente') {
+                $e->tipo_pago = null;
+            } elseif (empty($e->tipo_pago)) {
+                throw ValidationException::withMessages([
+                    'tipo_pago' => 'Debe indicar el tipo de pago cuando la encomienda está pagada.',
+                ]);
+            }
+
+            $e->load('detalles');
+            [$subtotal, $descuento, $total] = $this->importes(
+                $e->detalles->map(fn ($d) => [
+                    'cantidad' => $d->cantidad,
+                    'precio_unitario' => $d->precio_unitario,
+                ])->all(),
+                (float) $e->descuento,
+            );
+
+            $e->subtotal = $subtotal;
+            $e->descuento = $descuento;
             $e->total = $total;
             $e->save();
 
-            // Manejo de transiciones de pago → arqueo.
+            $idUser = (int) Auth::id();
+            if ($idUser <= 0) {
+                throw ValidationException::withMessages([
+                    'usuario' => 'No se pudo identificar al usuario que realiza la operación.',
+                ]);
+            }
+
             $this->manejarTransicionPagoEncomienda(
                 $e,
                 $estadoPagoAntes,
                 (string) $e->estado_pago,
+                $tipoPagoAntes,
+                $e->tipo_pago !== null ? (string) $e->tipo_pago : null,
                 $totalAntes,
                 (float) $e->total,
-                (int) Auth::id(),
+                $idUser,
             );
 
             $fresh = $this->obtener($id);
             $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
+
             return $fresh;
         });
     }
@@ -205,8 +388,9 @@ class EncomiendaService
     {
         return DB::transaction(function () use ($id, $data) {
             $e = $this->obtener($id);
-            if ($e->estaAnulada() || $e->estaEntregada())
-                throw ValidationException::withMessages(['encomienda' => 'No se puede asignar una encomienda entregada o anulada.']);
+            $before = $this->snapshot($e);
+            if (!$e->estaEnOrigen())
+                throw ValidationException::withMessages(['encomienda' => 'El viaje solo puede modificarse mientras la encomienda está en origen.']);
             $v = $this->viaje((int) $data['id_viaje']);
             $ve = ViajeEncomienda::query()->where('id_encomienda', $id)->first();
             if ($ve) {
@@ -214,7 +398,41 @@ class EncomiendaService
                 $ve->save();
             } else
                 ViajeEncomienda::query()->create(['id_viaje' => $v->id, 'id_encomienda' => $id]);
-            return $this->obtener($id);
+            $e->estado = $this->estadoEncomiendaSegunViaje($v);
+            $e->save();
+
+            $fresh = $this->obtener($id);
+            $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
+            return $fresh;
+        });
+    }
+
+    public function cambiarEstado(int $id, string $estado): Encomienda
+    {
+        return DB::transaction(function () use ($id, $estado) {
+            $e = $this->obtener($id);
+            $nuevoEstado = $this->estadoBD($estado);
+
+            $transiciones = [
+                'En origen' => 'En tránsito',
+                'En tránsito' => 'En destino',
+            ];
+
+            if (!isset($transiciones[$e->estado]) || $transiciones[$e->estado] !== $nuevoEstado) {
+                throw ValidationException::withMessages([
+                    'estado' => "No se puede cambiar la encomienda de {$e->estado} a {$nuevoEstado}.",
+                ]);
+            }
+
+            $before = $this->snapshot($e);
+            $e->estado = $nuevoEstado;
+            $e->save();
+
+            $fresh = $this->obtener($id);
+            $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
+
+            return $fresh;
+
         });
     }
 
@@ -226,9 +444,16 @@ class EncomiendaService
                 throw ValidationException::withMessages(['encomienda' => 'La encomienda está anulada.']);
             if (!$e->viajeEncomienda)
                 throw ValidationException::withMessages(['encomienda' => 'La encomienda no está asignada a un viaje.']);
+            if (!$e->estaEnDestino())
+                throw ValidationException::withMessages(['encomienda' => 'Solo se puede entregar una encomienda que ya se encuentra en destino.']);
+            if ($e->estaPendientePago())
+                throw ValidationException::withMessages(['estado_pago' => 'No se puede entregar una encomienda con pago pendiente.']);
+            $before = $this->snapshot($e);
             $e->estado = 'Entregada';
             $e->save();
-            return $this->obtener($id);
+            $fresh = $this->obtener($id);
+            $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
+            return $fresh;
         });
     }
 
@@ -236,15 +461,23 @@ class EncomiendaService
     {
         return DB::transaction(function () use ($id) {
             $e = $this->obtener($id);
-            if ($e->estaEntregada())
-                throw ValidationException::withMessages(['encomienda' => 'No se puede anular una encomienda entregada.']);
+            if ($this->choferContext->idChoferActual() !== null)
+                throw ValidationException::withMessages(['encomienda' => 'El rol chofer no puede anular encomiendas.']);
+            if (!$e->estaEnOrigen())
+                throw ValidationException::withMessages([
+                    'encomienda' => 'Solo se puede anular una encomienda mientras está en origen.',
+                ]);
+
+            $before = $this->snapshot($e);
 
             // Anular el ingreso asociado si existe uno válido.
             $this->anularIngresoEncomienda($e);
 
             $e->estado = 'Anulada';
             $e->save();
-            return $this->obtener($id);
+            $fresh = $this->obtener($id);
+            $this->audit->updated('Encomienda', $id, $before, $this->snapshot($fresh));
+            return $fresh;
         });
     }
 
@@ -267,7 +500,7 @@ class EncomiendaService
 
     private function snapshot(Encomienda $e): array
     {
-        return ['id' => $e->id, 'guia' => $e->guia, 'id_remitente' => $e->id_remitente, 'id_destinatario' => $e->id_destinatario, 'id_user_registro' => $e->id_user_registro, 'concepto' => $e->concepto, 'subtotal' => (float) $e->subtotal, 'descuento' => (float) $e->descuento, 'total' => (float) $e->total, 'lugar_pago' => $e->lugar_pago, 'estado_pago' => $e->estado_pago, 'tipo_pago' => $e->tipo_pago, 'estado' => $e->estado];
+        return ['id' => $e->id, 'guia' => $e->guia, 'id_remitente' => $e->id_remitente, 'id_destinatario' => $e->id_destinatario, 'id_user_registro' => $e->id_user_registro, 'id_viaje' => $e->viajeEncomienda?->id_viaje, 'concepto' => $e->concepto, 'subtotal' => (float) $e->subtotal, 'descuento' => (float) $e->descuento, 'total' => (float) $e->total, 'lugar_pago' => $e->lugar_pago, 'estado_pago' => $e->estado_pago, 'tipo_pago' => $e->tipo_pago, 'estado' => $e->estado];
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -288,6 +521,8 @@ class EncomiendaService
         Encomienda $e,
         string $estadoAntes,
         string $estadoDespues,
+        ?string $tipoPagoAntes,
+        ?string $tipoPagoDespues,
         float $totalAntes,
         float $totalDespues,
         int $idUser,
@@ -295,6 +530,7 @@ class EncomiendaService
         $eraPagado = $estadoAntes === 'Pagado';
         $esPagado = $estadoDespues === 'Pagado';
         $montoCambio = abs($totalAntes - $totalDespues) > 0.0001;
+        $tipoPagoCambio = $tipoPagoAntes !== $tipoPagoDespues;
 
         // Pendiente → Pagado: primer cobro.
         if (!$eraPagado && $esPagado) {
@@ -310,8 +546,8 @@ class EncomiendaService
             return;
         }
 
-        // Pagado → Pagado con monto distinto: reemplazar.
-        if ($eraPagado && $esPagado && $montoCambio) {
+        // Pagado → Pagado con monto o método de pago distinto: reemplazar.
+        if ($eraPagado && $esPagado && ($montoCambio || $tipoPagoCambio)) {
             $this->anularIngresoEncomienda($e);
             if ($totalDespues > 0) {
                 $this->registrarIngresoEncomienda($e, $idUser);
@@ -319,7 +555,7 @@ class EncomiendaService
             return;
         }
 
-        // Sin cambios relevantes (Pendiente→Pendiente, Pagado→Pagado mismo monto).
+        // Sin cambios relevantes (Pendiente→Pendiente, Pagado→Pagado mismo monto y método).
     }
 
     /**

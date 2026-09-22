@@ -10,7 +10,7 @@ html,body{margin:0!important;padding:0!important;width:80mm!important;min-width:
 html{height:auto!important;min-height:0!important}
 body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;color:#000;font-size:10px;line-height:1.12;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .ticket{display:block;width:80mm!important;height:auto!important;min-height:0!important;margin:0!important;padding:2mm 4mm!important;background:#fff;overflow:visible!important}
-.center{text-align:center}.title{font-size:14px;line-height:1.05;font-weight:700}.guide{font-size:16px;line-height:1.05;font-weight:700;margin:1.5px 0}.line{border-top:1px dashed #000;margin:2.5px 0}.row{margin:1px 0;line-height:1.12}.label{font-weight:700}.qr{display:block;width:30mm;height:30mm;margin:2.5px auto 1.5px}.small{font-size:7px;line-height:1.05;word-break:break-word}.footer{margin-top:1.5px;font-size:7px;line-height:1.05}
+.center{text-align:center}.title{font-size:14px;line-height:1.05;font-weight:700}.guide{font-size:16px;line-height:1.05;font-weight:700;margin:1.5px 0}.line{border-top:1px dashed #000;margin:2.5px 0}.row{margin:1px 0;line-height:1.12}.label{font-weight:700}.qr{display:block;width:30mm;height:30mm;margin:2.5px auto 1.5px}.small{font-size:7px;line-height:1.05;word-break:break-word}.detail-item{padding-left:2mm;word-break:break-word}.footer{margin-top:1.5px;font-size:7px;line-height:1.05}
 @media print{
     html,body{margin:0!important;padding:0!important;width:80mm!important;min-width:80mm!important;min-height:0!important;background:#fff!important;overflow:visible!important}
     body{position:static!important;display:block!important}
@@ -23,7 +23,7 @@ body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;c
     var MM_PER_PX = 25.4 / 96;
     var MIN_ETIQUETA_MM = 55;
     var MIN_COMPROBANTE_MM = 75;
-    var MAX_MM = 120;
+    var MAX_MM = 220;
     var tipo = @json($tipo);
 
     function aplicarTamanoExacto(){
@@ -89,6 +89,13 @@ body{height:auto!important;min-height:0!important;font-family:Arial,sans-serif;c
 <div class="row"><span class="label">Destinatario:</span> {{ trim(implode(' ', array_filter([$encomienda->destinatario?->nombres, $encomienda->destinatario?->apellido_paterno, $encomienda->destinatario?->apellido_materno]))) }}</div>
 <div class="row"><span class="label">Cantidad:</span> {{ $encomienda->detalles->sum('cantidad') }}</div>
 <div class="row"><span class="label">Precio:</span> Bs. {{ number_format((float) $encomienda->total, 2) }}</div>
+<div class="line"></div>
+<div class="row"><span class="label">Detalle:</span></div>
+@forelse($encomienda->detalles as $detalle)
+<div class="row detail-item">{{ $detalle->detalle }} — {{ $detalle->cantidad }} x Bs. {{ number_format((float) $detalle->precio_unitario, 2) }} = Bs. {{ number_format((float) $detalle->cantidad * (float) $detalle->precio_unitario, 2) }}</div>
+@empty
+<div class="row">Sin detalle registrado.</div>
+@endforelse
 @if($tipo === 'comprobante')
 <div class="row"><span class="label">Descripción:</span> {{ $encomienda->concepto ?: '-' }}</div>
 <div class="row"><span class="label">Estado:</span> {{ $encomienda->estado }}</div>
