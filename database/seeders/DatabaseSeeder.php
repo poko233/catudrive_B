@@ -251,7 +251,7 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         $planModuloRol = [
             'Superadmin' => '*',
-            'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos' . 'Arqueo'],
+            'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos', 'Arqueo'],
             'Usuario' => ['Inicio'],
             'Chofer' => ['Ventas', 'Encomiendas'],
         ];
