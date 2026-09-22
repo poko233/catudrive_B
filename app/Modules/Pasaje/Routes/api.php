@@ -26,16 +26,60 @@ Route::prefix('pasajes')
 
         Route::get(
             '/viajes',
-            [ViajeController::class, 'index']
+            [
+                ViajeController::class,
+                'index',
+            ]
         )
             ->middleware(
                 'throttle:api',
                 'permiso:Ventas,Pasajes,Ver'
             );
 
+        /*
+        |--------------------------------------------------------------------------
+        | PRÓXIMA HORA DE VIAJE
+        |--------------------------------------------------------------------------
+        |
+        | Ejemplo:
+        |
+        | GET /api/pasajes/viajes/proxima-hora/3
+        |
+        | Si la ruta comienza:
+        |
+        | 06:00
+        |
+        | Viaje 1 -> 06:00
+        | Viaje 2 -> 06:30
+        | Viaje 3 -> 07:00
+        |
+        */
+
+        Route::get(
+            '/viajes/proxima-hora/{ruta}',
+            [
+                ViajeController::class,
+                'proximaHora',
+            ]
+        )
+            ->whereNumber('ruta')
+            ->middleware(
+                'throttle:api',
+                'permiso:Ventas,Pasajes,Ver'
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREAR VIAJE
+        |--------------------------------------------------------------------------
+        */
+
         Route::post(
             '/viajes',
-            [ViajeController::class, 'store']
+            [
+                ViajeController::class,
+                'store',
+            ]
         )
             ->middleware(
                 'throttle:write',
@@ -47,8 +91,7 @@ Route::prefix('pasajes')
         | PASAJEROS DE UN VIAJE
         |--------------------------------------------------------------------------
         |
-        | GET
-        | /api/pasajes/viajes/{idViaje}/pasajeros
+        | GET /api/pasajes/viajes/{idViaje}/pasajeros
         |
         */
 
@@ -135,6 +178,12 @@ Route::prefix('pasajes')
             ->controller(PasajeReporteController::class)
             ->group(function (): void {
 
+                /*
+                |--------------------------------------------------------------------------
+                | REPORTE HTML
+                |--------------------------------------------------------------------------
+                */
+
                 Route::get(
                     '/{tipo}/html',
                     'html'
@@ -153,6 +202,12 @@ Route::prefix('pasajes')
                     ->name(
                         'pasajes.reportes.html'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | REPORTE PDF
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/{tipo}/pdf',
@@ -175,7 +230,7 @@ Route::prefix('pasajes')
 
                 /*
                 |--------------------------------------------------------------------------
-                | PLANILLA DE PASAJEROS
+                | PLANILLA DE PASAJEROS HTML
                 |--------------------------------------------------------------------------
                 */
 
@@ -191,6 +246,12 @@ Route::prefix('pasajes')
                     ->name(
                         'pasajes.reportes.planilla.html'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | PLANILLA DE PASAJEROS PDF
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/planilla/{idViaje}/pdf',
@@ -227,7 +288,7 @@ Route::prefix('pasajes')
 
         /*
         |--------------------------------------------------------------------------
-        | CANCELAR VENTA PENDIENTE
+        | CANCELAR VENTA
         |--------------------------------------------------------------------------
         */
 
@@ -265,7 +326,7 @@ Route::prefix('pasajes')
 
         /*
         |--------------------------------------------------------------------------
-        | DETALLE DE VENTA
+        | OBTENER VENTA
         |--------------------------------------------------------------------------
         */
 
@@ -303,7 +364,7 @@ Route::prefix('pasajes')
 
         /*
         |--------------------------------------------------------------------------
-        | ELIMINAR DETALLE
+        | ELIMINAR DETALLE DE VENTA
         |--------------------------------------------------------------------------
         */
 
@@ -360,8 +421,11 @@ Route::prefix('pasajes')
 
         /*
         |--------------------------------------------------------------------------
-        | BÚSQUEDA DE RUTAS
+        | RUTAS
         |--------------------------------------------------------------------------
+        |
+        | Búsqueda/listado de rutas dentro del módulo de Pasajes.
+        |
         */
 
         Route::get(
@@ -387,6 +451,12 @@ Route::prefix('pasajes')
         )
             ->group(function (): void {
 
+                /*
+                |--------------------------------------------------------------------------
+                | LISTAR RELACIONES
+                |--------------------------------------------------------------------------
+                */
+
                 Route::get(
                     '/',
                     [
@@ -399,6 +469,12 @@ Route::prefix('pasajes')
                         'permiso:Ventas,Transporte,Ver'
                     );
 
+                /*
+                |--------------------------------------------------------------------------
+                | CREAR RELACIÓN
+                |--------------------------------------------------------------------------
+                */
+
                 Route::post(
                     '/',
                     [
@@ -410,6 +486,12 @@ Route::prefix('pasajes')
                         'throttle:write',
                         'permiso:Ventas,Transporte,Crear'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | DETALLE RELACIÓN
+                |--------------------------------------------------------------------------
+                */
 
                 Route::get(
                     '/{vcr}',
@@ -424,6 +506,12 @@ Route::prefix('pasajes')
                         'permiso:Ventas,Transporte,Ver'
                     );
 
+                /*
+                |--------------------------------------------------------------------------
+                | ACTUALIZAR RELACIÓN
+                |--------------------------------------------------------------------------
+                */
+
                 Route::put(
                     '/{vcr}',
                     [
@@ -436,6 +524,12 @@ Route::prefix('pasajes')
                         'throttle:write',
                         'permiso:Ventas,Transporte,Editar'
                     );
+
+                /*
+                |--------------------------------------------------------------------------
+                | ELIMINAR RELACIÓN
+                |--------------------------------------------------------------------------
+                */
 
                 Route::delete(
                     '/{vcr}',
