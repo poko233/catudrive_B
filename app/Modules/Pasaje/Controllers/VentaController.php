@@ -8,6 +8,7 @@ use App\Modules\Pasaje\Requests\CambiarAsientoRequest;
 use App\Modules\Pasaje\Requests\ConfirmarVentaRequest;
 use App\Modules\Pasaje\Requests\IniciarVentaRequest;
 use App\Modules\Pasaje\Resources\VentaResource;
+use App\Modules\Pasaje\Services\PasajeroService;
 use App\Modules\Pasaje\Services\VentaService;
 use App\Shared\Security\SecurityResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -20,6 +21,7 @@ class VentaController
 {
     public function __construct(
         private readonly VentaService $ventaService,
+        private readonly PasajeroService $pasajeroService,
     ) {
     }
 
@@ -61,10 +63,17 @@ class VentaController
     public function confirmarVenta(int $ventaId, ConfirmarVentaRequest $request): JsonResponse|VentaResource
     {
         try {
+            $validated = $request->validated();
+
+            $this->pasajeroService->vincularSeleccionados(
+                $ventaId,
+                $validated['pasajeros'] ?? []
+            );
+
             return new VentaResource($this->ventaService->confirmarVenta(
                 $ventaId,
-                $request->validated()['forma_pago'],
-                $request->validated()['pasajeros'] ?? []
+                $validated['forma_pago'],
+                $validated['pasajeros'] ?? []
             ));
         } catch (AccessDeniedHttpException $e) {
             return SecurityResponse::forbidden($e->getMessage());
