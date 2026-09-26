@@ -14,11 +14,8 @@
         | PAPEL
         |--------------------------------------------------------------------------
         |
-        | Papel físico:
-        | 58 mm
-        |
-        | Área útil:
-        | 48 mm
+        | Papel físico: 58 mm
+        | Área útil:    48 mm
         |
         */
 
@@ -41,6 +38,9 @@
         |--------------------------------------------------------------------------
         | CUERPO
         |--------------------------------------------------------------------------
+        |
+        | Aumentado: 11px -> 13px
+        |
         */
 
         body {
@@ -49,21 +49,9 @@
                 'Courier New',
                 monospace;
 
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 9px
-            | AHORA: 11px
-            |--------------------------------------------------------------------------
-            */
+            font-size: 13px;
 
-            font-size: 11px;
-
-            /*
-            |--------------------------------------------------------------------------
-            | NO CAMBIAR
-            |--------------------------------------------------------------------------
-            */
-
+            /* NO CAMBIAR: ancho fijo de 48mm */
             width: 48mm;
 
             margin: 0 auto;
@@ -78,36 +66,18 @@
 
             position: relative;
 
-            /*
-            |--------------------------------------------------------------------------
-            | NO CAMBIAR
-            |--------------------------------------------------------------------------
-            */
-
+            /* NO CAMBIAR: compensa impresión corrida a la derecha */
             left: -1.25mm;
 
             -webkit-font-smoothing: none;
             text-rendering: geometricPrecision;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | TICKET
-        |--------------------------------------------------------------------------
-        */
-
         .ticket {
             width: 100%;
-
             padding: 0;
             margin: 0;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | UTILIDADES
-        |--------------------------------------------------------------------------
-        */
 
         .center {
             text-align: center;
@@ -125,12 +95,8 @@
 
         .line {
             width: 100%;
-
-            border-top:
-                1px dashed #000;
-
-            margin:
-                4px 0;
+            border-top: 1px dashed #000;
+            margin: 4px 0;
         }
 
         /*
@@ -141,20 +107,11 @@
 
         .row {
             display: flex;
-
-            justify-content:
-                space-between;
-
-            align-items:
-                flex-start;
-
+            justify-content: space-between;
+            align-items: flex-start;
             gap: 4px;
-
-            margin-bottom:
-                2px;
-
-            font-weight:
-                900;
+            margin-bottom: 2px;
+            font-weight: 900;
         }
 
         .row span:first-child {
@@ -163,96 +120,69 @@
 
         .row span:last-child {
             text-align: right;
-
-            overflow-wrap:
-                anywhere;
+            overflow-wrap: anywhere;
         }
 
         /*
         |--------------------------------------------------------------------------
         | TABLA
         |--------------------------------------------------------------------------
+        |
+        | th/td aumentado: 9px -> 12px
+        |
         */
 
         table {
             width: 100%;
-
-            border-collapse:
-                collapse;
-
-            table-layout:
-                fixed;
-
-            margin-top:
-                4px;
-
-            font-weight:
-                900;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 4px;
+            font-weight: 900;
         }
 
         th,
         td {
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 8px
-            | AHORA: 9px
-            |--------------------------------------------------------------------------
-            */
-
-            font-size:
-                9px;
-
-            text-align:
-                left;
-
-            vertical-align:
-                top;
-
-            padding:
-                2px 1px 2px 0;
-
-            font-weight:
-                900;
-
-            overflow-wrap:
-                anywhere;
+            font-size: 12px;
+            text-align: left;
+            vertical-align: top;
+            padding: 2px 1px 2px 0;
+            font-weight: 900;
+            overflow-wrap: anywhere;
         }
 
         th {
-            border-bottom:
-                1px solid #000;
-
-            padding-bottom:
-                3px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
         }
 
         /*
         |--------------------------------------------------------------------------
         | ANCHOS DE COLUMNAS
         |--------------------------------------------------------------------------
+        |
+        | NO CAMBIAR: los porcentajes deben sumar 100%
+        |
         */
 
         th:nth-child(1),
         td:nth-child(1) {
-            width: 17%;
+            width: 22%;
         }
 
         th:nth-child(2),
         td:nth-child(2) {
-            width: 31%;
+            width: 30%;
         }
 
         th:nth-child(3),
         td:nth-child(3) {
-            width: 22%;
+            width: 20%;
         }
 
         th:nth-child(4),
         td:nth-child(4) {
-            width: 30%;
-
-            text-align:
-                right;
+            width: 28%;
+            text-align: right;
         }
 
         /*
@@ -262,122 +192,75 @@
         */
 
         .qr {
-            text-align:
-                center;
-
-            margin:
-                7px 0 4px 0;
+            text-align: center;
+            margin: 7px 0 4px 0;
         }
 
         .qr img {
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 100px
-            | AHORA: 120px
-            |--------------------------------------------------------------------------
-            */
-
-            width:
-                120px;
-
-            height:
-                120px;
-
-            image-rendering:
-                pixelated;
-
-            image-rendering:
-                crisp-edges;
+            width: 120px;
+            height: 120px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
 
         /*
         |--------------------------------------------------------------------------
         | FOOTER
         |--------------------------------------------------------------------------
+        |
+        | Aumentado: 9px -> 11px
+        |
         */
 
         .footer {
-            text-align:
-                center;
-
-            margin-top:
-                4px;
-
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 7px
-            | AHORA: 9px
-            |--------------------------------------------------------------------------
-            */
-
-            font-size:
-                9px;
-
-            font-weight:
-                900;
+            text-align: center;
+            margin-top: 4px;
+            font-size: 11px;
+            font-weight: 900;
         }
 
         /*
         |--------------------------------------------------------------------------
         | TÍTULO
         |--------------------------------------------------------------------------
+        |
+        | Aumentado: 15px -> 18px
+        |
         */
 
         .brand {
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 11px
-            | AHORA: 15px
-            |--------------------------------------------------------------------------
-            */
-
-            font-size:
-                15px;
-
-            font-weight:
-                900;
-
-            line-height:
-                1.1;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.1;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | RECEIPT NUMBER
+        |--------------------------------------------------------------------------
+        |
+        | Aumentado: 10px -> 12px
+        |
+        */
+
         .receipt-number {
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 8px
-            | AHORA: 10px
-            |--------------------------------------------------------------------------
-            */
-
-            font-size:
-                10px;
-
-            margin-top:
-                2px;
+            font-size: 12px;
+            margin-top: 2px;
         }
 
         /*
         |--------------------------------------------------------------------------
         | TOTAL
         |--------------------------------------------------------------------------
+        |
+        | Aumentado: 13px -> 16px
+        |
         */
 
         .total-row {
-            /*
-            |--------------------------------------------------------------------------
-            | ANTES: 10px
-            | AHORA: 13px
-            |--------------------------------------------------------------------------
-            */
-
-            font-size:
-                13px;
-
-            margin-top:
-                4px;
-
-            margin-bottom:
-                3px;
+            font-size: 16px;
+            margin-top: 4px;
+            margin-bottom: 3px;
         }
     </style>
 </head>
@@ -458,35 +341,35 @@
 
             $fechaSalida =
                 $ruta?->fecha_inicio
-                    ? \Carbon\Carbon::parse(
-                        $ruta->fecha_inicio
-                    )->format('d/m/Y')
-                    : null;
+                ? \Carbon\Carbon::parse(
+                    $ruta->fecha_inicio
+                )->format('d/m/Y')
+                : null;
 
             $horaSalida =
                 $ruta?->hora_inicio
-                    ? substr(
-                        $ruta->hora_inicio,
-                        0,
-                        5
-                    )
-                    : null;
+                ? substr(
+                    $ruta->hora_inicio,
+                    0,
+                    5
+                )
+                : null;
 
             $fechaLlegada =
                 $ruta?->fecha_fin
-                    ? \Carbon\Carbon::parse(
-                        $ruta->fecha_fin
-                    )->format('d/m/Y')
-                    : null;
+                ? \Carbon\Carbon::parse(
+                    $ruta->fecha_fin
+                )->format('d/m/Y')
+                : null;
 
             $horaLlegada =
                 $ruta?->hora_fin
-                    ? substr(
-                        $ruta->hora_fin,
-                        0,
-                        5
-                    )
-                    : null;
+                ? substr(
+                    $ruta->hora_fin,
+                    0,
+                    5
+                )
+                : null;
         @endphp
 
         <div class="row">
@@ -496,11 +379,11 @@
 
             <span>
                 {{
-                    trim(
-                        ($fechaSalida ?? '-') .
-                        ' ' .
-                        ($horaSalida ?? '')
-                    )
+    trim(
+        ($fechaSalida ?? '-') .
+        ' ' .
+        ($horaSalida ?? '')
+    )
                 }}
             </span>
         </div>
@@ -512,11 +395,11 @@
 
             <span>
                 {{
-                    trim(
-                        ($fechaLlegada ?? '-') .
-                        ' ' .
-                        ($horaLlegada ?? '')
-                    )
+    trim(
+        ($fechaLlegada ?? '-') .
+        ' ' .
+        ($horaLlegada ?? '')
+    )
                 }}
             </span>
         </div>
@@ -532,13 +415,13 @@
 
             <span>
                 {{
-                    $venta
-                        ->viaje
-                        ->vehiculoChoferRuta
-                        ->asignacion
-                        ->vehiculo
-                        ->placa
-                    ?? '-'
+    $venta
+        ->viaje
+        ->vehiculoChoferRuta
+        ->asignacion
+        ->vehiculo
+        ->placa
+    ?? '-'
                 }}
             </span>
         </div>
@@ -554,32 +437,32 @@
 
             <span>
                 {{
-                    trim(
-                        (
-                            $venta
-                                ->viaje
-                                ->vehiculoChoferRuta
-                                ->asignacion
-                                ->chofer
-                                ->usuario
-                                ->nombres
-                            ?? ''
-                        )
-                        .
-                        ' '
-                        .
-                        (
-                            $venta
-                                ->viaje
-                                ->vehiculoChoferRuta
-                                ->asignacion
-                                ->chofer
-                                ->usuario
-                                ->primer_apellido
-                            ?? ''
-                        )
-                    )
-                    ?: '-'
+    trim(
+        (
+            $venta
+                ->viaje
+                ->vehiculoChoferRuta
+                ->asignacion
+                ->chofer
+                ->usuario
+                ->nombres
+            ?? ''
+        )
+        .
+        ' '
+        .
+        (
+            $venta
+                ->viaje
+                ->vehiculoChoferRuta
+                ->asignacion
+                ->chofer
+                ->usuario
+                ->primer_apellido
+            ?? ''
+        )
+    )
+    ?: '-'
                 }}
             </span>
         </div>
@@ -595,7 +478,7 @@
             <thead>
                 <tr>
                     <th>
-                        As.
+                        Piso/As.
                     </th>
 
                     <th>
@@ -615,87 +498,109 @@
             <tbody>
 
                 @foreach(
-                    $venta->detalles
-                    as $detalle
-                )
-
-                    <tr>
-
-                        <td>
-                            {{
-                                $detalle
-                                    ->asiento
-                                    ->numero_asiento
-                                ??
-                                (
-                                    $detalle
-                                        ->asiento
-                                        ->fila
-                                    .
-                                    '-'
-                                    .
-                                    $detalle
-                                        ->asiento
-                                        ->columna
-                                )
-                            }}
-                        </td>
-
-                        <td>
-
-                            @if(
-                                $detalle->pasajero
+                                $venta->detalles
+                                as $detalle
                             )
 
-                                {{
-                                    strtoupper(
-                                        $detalle
-                                            ->pasajero
-                                            ->apellido_paterno
-                                    )
-                                }}
+                            @php
+                                $piso =
+                                    $detalle
+                                        ->asiento
+                                            ?->piso;
 
-                                {{
-                                    strtoupper(
-                                        mb_substr(
+                                $numeroAsiento =
+                                    $detalle
+                                        ->asiento
+                                        ->numero_asiento
+                                    ??
+                                    (
+                                        (
+                                            $detalle
+                                                ->asiento
+                                                ->fila
+                                            ?? '-'
+                                        )
+                                        .
+                                        '-'
+                                        .
+                                        (
+                                            $detalle
+                                                ->asiento
+                                                ->columna
+                                            ?? '-'
+                                        )
+                                    );
+
+                                $pisoAsiento =
+                                    $piso
+                                    ? 'P' .
+                                    $piso->numero .
+                                    '-' .
+                                    $numeroAsiento
+                                    : $numeroAsiento;
+                            @endphp
+
+                            <tr>
+
+                                <td>
+                                    {{ $pisoAsiento }}
+                                </td>
+
+                                <td>
+
+                                    @if(
+                                                        $detalle->pasajero
+                                                    )
+
+                                                    {{
+                                        strtoupper(
                                             $detalle
                                                 ->pasajero
-                                                ->nombres,
-                                            0,
-                                            1
+                                                ->apellido_paterno
                                         )
-                                    )
-                                }}.
+                                                            }}
 
-                            @else
+                                                    {{
+                                        strtoupper(
+                                            mb_substr(
+                                                $detalle
+                                                    ->pasajero
+                                                    ->nombres,
+                                                0,
+                                                1
+                                            )
+                                        )
+                                                            }}.
 
-                                -
+                                    @else
 
-                            @endif
+                                        -
 
-                        </td>
+                                    @endif
 
-                        <td>
-                            {{
-                                $detalle
-                                    ->pasajero
-                                    ->ci
-                                ?? '-'
-                            }}
-                        </td>
+                                </td>
 
-                        <td>
-                            Bs
-                            {{
-                                number_format(
-                                    $detalle
-                                        ->precio_unitario,
-                                    2
-                                )
-                            }}
-                        </td>
+                                <td>
+                                    {{
+                    $detalle
+                        ->pasajero
+                        ->ci
+                    ?? '-'
+                                        }}
+                                </td>
 
-                    </tr>
+                                <td>
+                                    Bs
+                                    {{
+                    number_format(
+                        $detalle
+                            ->precio_unitario,
+                        2
+                    )
+                                        }}
+                                </td>
+
+                            </tr>
 
                 @endforeach
 
@@ -718,10 +623,10 @@
             <span>
                 Bs
                 {{
-                    number_format(
-                        $venta->precio_total,
-                        2
-                    )
+    number_format(
+        $venta->precio_total,
+        2
+    )
                 }}
             </span>
 
@@ -732,15 +637,12 @@
         ================================================================ --}}
 
         @if(
-            isset($qrData)
-        )
+                isset($qrData)
+            )
 
             <div class="qr">
 
-                <img
-                    src="{{ $qrData }}"
-                    alt="QR"
-                >
+                <img src="{{ $qrData }}" alt="QR">
 
             </div>
 
