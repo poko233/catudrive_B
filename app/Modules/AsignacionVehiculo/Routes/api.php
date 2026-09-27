@@ -29,9 +29,6 @@ Route::prefix(
                     'index',
                 ]
             )
-                ->middleware(
-                    'permiso:Asignaciones,Asignacion Vehiculos,Ver'
-                )
                 ->name(
                     'asignaciones.vehiculos.index'
                 );

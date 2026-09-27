@@ -28,9 +28,6 @@ Route::prefix(
                     'index',
                 ]
             )
-                ->middleware(
-                    'permiso:Rutas,Rutas,Ver'
-                )
                 ->name(
                     'rutas.index'
                 );

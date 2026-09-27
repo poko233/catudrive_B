@@ -12,11 +12,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Modules\Pasaje\Services\ChoferContextService;
 
 class AsignacionVehiculoService
 {
     public function __construct(
-        private readonly AuditService $audit
+        private readonly AuditService $audit,
+        private readonly ChoferContextService $choferContext,
     ) {
     }
 
@@ -43,24 +45,46 @@ class AsignacionVehiculoService
 
     public function listar(): Collection
     {
-        return $this
+        $idChofer = $this->choferContext
+            ->idChoferActual();
+
+        $query = $this
             ->queryBase()
             ->orderByRaw(
                 "
-                CASE
-                    WHEN estado = 'Activo'
-                    THEN 0
-                    ELSE 1
-                END
-                "
+            CASE
+                WHEN estado = 'Activo'
+                THEN 0
+                ELSE 1
+            END
+            "
             )
             ->orderByDesc(
                 'fecha_asignacion'
             )
             ->orderByDesc(
                 'id'
-            )
-            ->get();
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTRO POR CHOFER
+        |--------------------------------------------------------------------------
+        |
+        | Si el usuario autenticado tiene el rol "Chofer" (y no es
+        | Administrador/Superadmin), solo se devuelven sus propias
+        | asignaciones. Si no es chofer, se devuelven todas.
+        |
+        */
+
+        if ($idChofer !== null) {
+            $query->where(
+                'id_chofer',
+                $idChofer
+            );
+        }
+
+        return $query->get();
     }
 
     /*
@@ -154,7 +178,7 @@ class AsignacionVehiculoService
 
                         return [
                             'id' =>
-                                (int)
+                                (int) 
                                 $chofer->id,
 
                             'nombre' =>
@@ -175,7 +199,7 @@ class AsignacionVehiculoService
                     }
                 )
                 ->sortBy(
-                    fn (array $item) =>
+                    fn(array $item) =>
                         mb_strtolower(
                             $item[
                                 'nombre'
@@ -208,9 +232,9 @@ class AsignacionVehiculoService
                 )
                 ->get()
                 ->map(
-                    fn (Vehiculo $vehiculo): array => [
+                    fn(Vehiculo $vehiculo): array => [
                         'id' =>
-                            (int)
+                            (int) 
                             $vehiculo->id,
 
                         'placa' =>
@@ -229,7 +253,7 @@ class AsignacionVehiculoService
                             $vehiculo->color,
 
                         'capacidad' =>
-                            (int)
+                            (int) 
                             $vehiculo->capacidad,
 
                         'estado' =>
@@ -260,18 +284,15 @@ class AsignacionVehiculoService
             0;
 
         DB::transaction(
-            function () use (
-                $data,
-                &$id
-            ): void {
+            function () use ($data, &$id): void {
                 $idChofer =
-                    (int)
+                    (int) 
                     $data[
                         'id_chofer'
                     ];
 
                 $idVehiculo =
-                    (int)
+                    (int) 
                     $data[
                         'id_vehiculo'
                     ];
@@ -331,7 +352,7 @@ class AsignacionVehiculoService
                         ]);
 
                 $id =
-                    (int)
+                    (int) 
                     $asignacion->id;
             }
         );
@@ -344,15 +365,15 @@ class AsignacionVehiculoService
         $this->audit
             ->created(
                 resource:
-                    'AsignacionVehiculo',
+                'AsignacionVehiculo',
 
                 resourceId:
-                    $id,
+                $id,
 
                 after:
-                    $this->snapshot(
-                        $fresh
-                    ),
+                $this->snapshot(
+                    $fresh
+                ),
             );
 
         return $fresh;
@@ -400,12 +421,7 @@ class AsignacionVehiculoService
             [];
 
         DB::transaction(
-            function () use (
-                $id,
-                $data,
-                &$nuevaId,
-                &$anteriorSnapshot
-            ): void {
+            function () use ($id, $data, &$nuevaId, &$anteriorSnapshot): void {
                 /** @var AsignacionVehiculoChofer $actual */
                 $actual =
                     AsignacionVehiculoChofer::query()
@@ -424,7 +440,7 @@ class AsignacionVehiculoService
                 }
 
                 $fechaNueva =
-                    (string)
+                    (string) 
                     $data[
                         'fecha_asignacion'
                     ];
@@ -432,7 +448,7 @@ class AsignacionVehiculoService
                 $fechaActual =
                     $actual
                         ->fecha_asignacion
-                        ?->format(
+                            ?->format(
                             'Y-m-d'
                         );
 
@@ -448,13 +464,13 @@ class AsignacionVehiculoService
                 }
 
                 $idChofer =
-                    (int)
+                    (int) 
                     $data[
                         'id_chofer'
                     ];
 
                 $idVehiculo =
-                    (int)
+                    (int) 
                     $data[
                         'id_vehiculo'
                     ];
@@ -545,7 +561,7 @@ class AsignacionVehiculoService
                         ]);
 
                 $nuevaId =
-                    (int)
+                    (int) 
                     $nueva->id;
             }
         );
@@ -569,18 +585,18 @@ class AsignacionVehiculoService
         $this->audit
             ->updated(
                 resource:
-                    'AsignacionVehiculo',
+                'AsignacionVehiculo',
 
                 resourceId:
-                    $id,
+                $id,
 
                 before:
-                    $anteriorSnapshot,
+                $anteriorSnapshot,
 
                 after:
-                    $this->snapshot(
-                        $anterior
-                    ),
+                $this->snapshot(
+                    $anterior
+                ),
             );
 
         /*
@@ -592,15 +608,15 @@ class AsignacionVehiculoService
         $this->audit
             ->created(
                 resource:
-                    'AsignacionVehiculo',
+                'AsignacionVehiculo',
 
                 resourceId:
-                    $nuevaId,
+                $nuevaId,
 
                 after:
-                    $this->snapshot(
-                        $nueva
-                    ),
+                $this->snapshot(
+                    $nueva
+                ),
             );
 
         return [
@@ -639,11 +655,7 @@ class AsignacionVehiculoService
             [];
 
         DB::transaction(
-            function () use (
-                $id,
-                $fechaFinalizacion,
-                &$before
-            ): void {
+            function () use ($id, $fechaFinalizacion, &$before): void {
                 /** @var AsignacionVehiculoChofer $asignacion */
                 $asignacion =
                     AsignacionVehiculoChofer::query()
@@ -664,7 +676,7 @@ class AsignacionVehiculoService
                 $inicio =
                     $asignacion
                         ->fecha_asignacion
-                        ?->format(
+                            ?->format(
                             'Y-m-d'
                         );
 
@@ -702,18 +714,18 @@ class AsignacionVehiculoService
         $this->audit
             ->updated(
                 resource:
-                    'AsignacionVehiculo',
+                'AsignacionVehiculo',
 
                 resourceId:
-                    $id,
+                $id,
 
                 before:
-                    $before,
+                $before,
 
                 after:
-                    $this->snapshot(
-                        $fresh
-                    ),
+                $this->snapshot(
+                    $fresh
+                ),
             );
 
         return $fresh;
@@ -804,7 +816,7 @@ class AsignacionVehiculoService
             !$chofer->usuario ||
             mb_strtoupper(
                 trim(
-                    (string)
+                    (string) 
                     $chofer->usuario->estado
                 )
             ) !== 'ACTIVO'
@@ -834,7 +846,7 @@ class AsignacionVehiculoService
         if (
             mb_strtoupper(
                 trim(
-                    (string)
+                    (string) 
                     $vehiculo->estado
                 )
             ) !== 'OPERATIVO'
@@ -874,7 +886,7 @@ class AsignacionVehiculoService
                 )
                 ->when(
                     $exceptoAsignacion,
-                    fn (Builder $query) =>
+                    fn(Builder $query) =>
                         $query->where(
                             'id',
                             '!=',
@@ -904,28 +916,28 @@ class AsignacionVehiculoService
     ): array {
         return [
             'id' =>
-                (int)
+                (int) 
                 $asignacion->id,
 
             'id_chofer' =>
-                (int)
+                (int) 
                 $asignacion->id_chofer,
 
             'id_vehiculo' =>
-                (int)
+                (int) 
                 $asignacion->id_vehiculo,
 
             'fecha_asignacion' =>
                 $asignacion
                     ->fecha_asignacion
-                    ?->format(
+                        ?->format(
                         'Y-m-d'
                     ),
 
             'fecha_finalizacion' =>
                 $asignacion
                     ->fecha_finalizacion
-                    ?->format(
+                        ?->format(
                         'Y-m-d'
                     ),
 

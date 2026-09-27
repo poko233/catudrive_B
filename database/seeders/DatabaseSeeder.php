@@ -411,15 +411,7 @@ class DatabaseSeeder extends Seeder
                     'habilitado' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
-                ],
-                [
-                    'id_rol' => $idRolChofer,
-                    'id_formulario' => $idFormPasajes,
-                    'selector_html' => '.pasajes-crear',
-                    'habilitado' => false,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
+                ]
             ]);
 
             $this->command->info('✅ Selectores ocultos Chofer/Pasajes OK (2)');
