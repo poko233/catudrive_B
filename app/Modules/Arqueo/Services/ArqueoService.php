@@ -274,17 +274,26 @@ class ArqueoService
 
     public function listarArqueos(
         array $filtros,
-        int $idUser,
+        \App\Shared\Models\User $user,
         int $perPage = 15,
     ): LengthAwarePaginator {
         $query = Arqueo::query()
             ->with('user')
             ->orderByDesc('fecha_apertura');
 
-        // Por defecto un usuario ve sus propios arqueos.
-        // Un admin puede consultar los de otro usuario pasando
-        // explícitamente `id_user` en los filtros.
-        $query->where('id_user', (int) ($filtros['id_user'] ?? $idUser));
+        // Si el front pide un usuario específico, se respeta.
+        if (!empty($filtros['id_user'])) {
+            $query->where('id_user', (int) $filtros['id_user']);
+        } else {
+            // Sin filtro explícito: solo los super roles ven todos.
+            // El resto ve únicamente los propios.
+            $superRoles = config('rbac.super_roles', []);
+            $esSuper = $superRoles !== [] && $user->hasAnyRole($superRoles);
+
+            if (!$esSuper) {
+                $query->where('id_user', (int) $user->id);
+            }
+        }
 
         if (!empty($filtros['estado'])) {
             $query->where('estado', $filtros['estado']);

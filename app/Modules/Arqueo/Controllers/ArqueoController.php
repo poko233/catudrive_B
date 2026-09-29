@@ -25,7 +25,7 @@ class ArqueoController
     {
         $arqueos = $this->arqueoService->listarArqueos(
             $request->validated(),
-            (int) $request->user()->id,
+            $request->user(),                                    // ← User completo
             (int) ($request->validated()['per_page'] ?? 15),
         );
 
