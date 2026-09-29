@@ -6,10 +6,10 @@
 <style>
 @page{size:48mm auto;margin:0}
 html,body{margin:0;padding:0}*{box-sizing:border-box}
-body{font-family:'DejaVu Sans Mono','Courier New',monospace;font-size:8px;width:48mm;margin:0 auto;padding:0;color:#000;background:#fff;font-weight:900;line-height:1.18;position:relative;left:-1.25mm;-webkit-font-smoothing:none;text-rendering:geometricPrecision}
-.ticket{width:100%;padding:0;margin:0}.center{text-align:center}.bold{font-weight:900}.brand{font-size:11px;line-height:1.1}.guide{font-size:10px;margin-top:1px}.line{width:100%;border-top:1px dashed #000;margin:2px 0}.row{display:flex;justify-content:space-between;align-items:flex-start;gap:3px;margin-bottom:1px}.row span:first-child{flex-shrink:0}
-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:2px;font-weight:900}th,td{font-size:7px;text-align:left;vertical-align:top;padding:1px 1px 1px 0;font-weight:900;overflow-wrap:anywhere;border-bottom:1px dotted #999}th{border-bottom:1px solid #000}th:nth-child(1),td:nth-child(1){width:43%}th:nth-child(2),td:nth-child(2){width:14%;text-align:center}th:nth-child(3),td:nth-child(3){width:21%;text-align:right}th:nth-child(4),td:nth-child(4){width:22%;text-align:right}
-.qr{text-align:center;margin:4px 0 2px}.qr img{width:100px;height:100px;image-rendering:pixelated;image-rendering:crisp-edges}.footer{text-align:center;margin-top:2px;font-size:7px}.total-row{font-size:9px;margin-top:2px}
+body{font-family:'DejaVu Sans Mono','Courier New',monospace;font-size:11px;width:48mm;margin:0 auto;padding:0;color:#000;background:#fff;font-weight:900;line-height:1.25;position:relative;left:-1.25mm;-webkit-font-smoothing:none;text-rendering:geometricPrecision}
+.ticket{width:100%;padding:0;margin:0}.center{text-align:center}.bold{font-weight:900}.brand{font-size:16px;line-height:1.1}.guide{font-size:12px;margin-top:2px}.line{width:100%;border-top:1px dashed #000;margin:4px 0}.row{display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:2px}.row span:first-child{flex-shrink:0}
+table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:4px;font-weight:900}th,td{font-size:9px;text-align:left;vertical-align:top;padding:2px 1px 2px 0;font-weight:900;overflow-wrap:anywhere;border-bottom:1px dotted #999}th{border-bottom:1px solid #000}th:nth-child(1),td:nth-child(1){width:43%}th:nth-child(2),td:nth-child(2){width:14%;text-align:center}th:nth-child(3),td:nth-child(3){width:21%;text-align:right}th:nth-child(4),td:nth-child(4){width:22%;text-align:right}
+.qr{text-align:center;margin:7px 0 4px}.qr img{width:120px;height:120px;image-rendering:pixelated;image-rendering:crisp-edges}.footer{text-align:center;margin-top:4px;font-size:9px}.total-row{font-size:12px;margin-top:3px}
 </style>
 </head>
 <body><div class="ticket">
@@ -35,4 +35,8 @@ table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:2px;font
 <div class="line"></div>
 @if($tipo !== 'comprobante')<div class="qr"><img src="{{ $qrImage }}" alt="QR"></div><div class="center footer">Escanee este código para consultar la encomienda</div>@endif
 <div class="center footer">Impreso: {{ now()->format('d/m/Y H:i') }}</div>
-</div></body></html>
+</div>
+
+
+</body>
+</html>
