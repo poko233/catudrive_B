@@ -1440,7 +1440,7 @@ class VentaService
                 );
 
         return Pdf::loadView(
-            'pasajes.ticket',
+            'pasajes.ticket-thermal',
             [
                 'venta' =>
                     $venta,
