@@ -332,43 +332,33 @@
         ================================================================ --}}
 
         @php
-            $ruta =
-                $venta
-                    ->viaje
-                    ->vehiculoChoferRuta
-                    ->ruta
-                ?? null;
+            $vcr = $venta->viaje->vehiculoChoferRuta ?? null;
+            $ruta = $vcr?->ruta ?? null;
 
-            $fechaSalida =
-                $ruta?->fecha_inicio
-                ? \Carbon\Carbon::parse(
-                    $ruta->fecha_inicio
-                )->format('d/m/Y')
+            /*
+            |--------------------------------------------------------------------------
+            | FUENTE DE VERDAD PARA LA HORA DE SALIDA
+            |--------------------------------------------------------------------------
+            |
+            | Usamos la hora real del viaje (vehiculo_chofer_ruta.hora_inicio)
+            | y no la hora base de la ruta (ruta.hora_inicio).
+            |
+            */
+
+            $fechaSalida = $vcr?->hora_inicio
+                ? $vcr->hora_inicio->format('d/m/Y')
                 : null;
 
-            $horaSalida =
-                $ruta?->hora_inicio
-                ? substr(
-                    $ruta->hora_inicio,
-                    0,
-                    5
-                )
+            $horaSalida = $vcr?->hora_inicio
+                ? $vcr->hora_inicio->format('H:i')
                 : null;
 
-            $fechaLlegada =
-                $ruta?->fecha_fin
-                ? \Carbon\Carbon::parse(
-                    $ruta->fecha_fin
-                )->format('d/m/Y')
+            $fechaLlegada = $ruta?->fecha_fin
+                ? \Carbon\Carbon::parse($ruta->fecha_fin)->format('d/m/Y')
                 : null;
 
-            $horaLlegada =
-                $ruta?->hora_fin
-                ? substr(
-                    $ruta->hora_fin,
-                    0,
-                    5
-                )
+            $horaLlegada = $ruta?->hora_fin
+                ? substr($ruta->hora_fin, 0, 5)
                 : null;
         @endphp
 
