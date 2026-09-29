@@ -327,13 +327,40 @@ class ArqueoService
         $idChofer = $this->choferContext->idChoferActual();
 
         if ($idChofer !== null) {
-            $detalle = $this->detalleViajesDelChofer($idChofer);
+            // Punto de corte: cierre del arqueo anterior del chofer.
+            // Todo lo anterior ya fue liquidado/pagado.
+            $cutoff = $this->ultimoCierreDelChofer($idChofer, $arqueo);
+
+            $detalle = $this->detalleViajesDelChofer($idChofer, $cutoff);
 
             $arqueo->setAttribute('viajes_chofer', $detalle['viajes']);
             $arqueo->setAttribute('viajes_totales', $detalle['totales']);
         }
 
         return $arqueo;
+    }
+
+    /**
+     * Devuelve la fecha de cierre del último arqueo TERMINADO del
+     * chofer, siempre que sea anterior a la apertura del arqueo
+     * que se está consultando.
+     *
+     * Retorna null si no hay arqueo anterior cerrado (primer arqueo).
+     */
+    private function ultimoCierreDelChofer(int $idChofer, Arqueo $arqueoActual): ?Carbon
+    {
+        if ($arqueoActual->fecha_apertura === null) {
+            return null;
+        }
+
+        $fechaCierre = Arqueo::query()
+            ->where('id_user', $idChofer)
+            ->where('estado', 'Terminado')
+            ->whereNotNull('fecha_cierre')
+            ->where('fecha_cierre', '<', $arqueoActual->fecha_apertura)
+            ->max('fecha_cierre');
+
+        return $fechaCierre !== null ? Carbon::parse($fechaCierre) : null;
     }
     public function eliminarArqueo(Arqueo $arqueo): void
     {
@@ -497,7 +524,7 @@ class ArqueoService
      *
      * @return array{viajes: array<int, array<string, mixed>>, totales: array<string, mixed>}
      */
-    private function detalleViajesDelChofer(int $idChofer): array
+    private function detalleViajesDelChofer(int $idChofer, ?Carbon $cutoff = null): array
     {
         // ── Query 1: viajes donde el chofer está asignado activo ──
         $viajes = Viaje::query()
@@ -539,14 +566,34 @@ class ArqueoService
                 ->all();
         }
 
-        // ── Query 3: ventas pagadas de esos viajes ──
-        $filasVentas = DB::table('detalle_venta')
+        // ── Query 2.5: asientos realmente OCUPADOS por viaje ──
+        // Sin cutoff: sirve para calcular `pendientes` con la realidad
+        // física del viaje (un asiento vendido y ya liquidado NO vuelve
+        // a estar disponible).
+        $asientosOcupadosPorViaje = DB::table('detalle_venta')
+            ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
+            ->whereIn('venta.id_viaje', $idsViajes)
+            ->where('venta.estado', 'Pagada')
+            ->whereNull('venta.deleted_at')
+            ->groupBy('venta.id_viaje')
+            ->selectRaw('venta.id_viaje as id_viaje, COUNT(detalle_venta.id) as ocupados')
+            ->pluck('ocupados', 'id_viaje')
+            ->all();
+
+        // ── Query 3: ventas pagadas NO liquidadas (post-cutoff) ──
+        $queryVentas = DB::table('detalle_venta')
             ->join('venta', 'venta.id', '=', 'detalle_venta.id_venta')
             ->join('asiento', 'asiento.id', '=', 'detalle_venta.id_asiento')
             ->join('user', 'user.id', '=', 'venta.id_user')
             ->whereIn('venta.id_viaje', $idsViajes)
             ->where('venta.estado', 'Pagada')
-            ->whereNull('venta.deleted_at')
+            ->whereNull('venta.deleted_at');
+
+        if ($cutoff !== null) {
+            $queryVentas->where('venta.created_at', '>', $cutoff);
+        }
+
+        $filasVentas = $queryVentas
             ->select([
                 'venta.id_viaje as id_viaje',
                 'venta.id as id_venta',
@@ -635,7 +682,11 @@ class ArqueoService
                 $otrasPorUsuario
             ));
 
-            $pendientes = max(0, $asientosTotales - $vendidosPorMi - $vendidosPorOtros);
+            // `pendientes` se calcula desde la OCUPACIÓN REAL del viaje,
+            // no desde las ventas filtradas por cutoff. Un asiento vendido
+            // ayer y ya liquidado sigue ocupado físicamente.
+            $ocupadosReales = (int) ($asientosOcupadosPorViaje[(int) $viaje->id] ?? 0);
+            $pendientes = max(0, $asientosTotales - $ocupadosReales);
 
             $totalPorMi = array_sum(array_map(
                 static fn(object $f): float => (float) $f->precio_unitario,
