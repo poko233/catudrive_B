@@ -20,6 +20,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use App\Shared\Helpers\NumeroALetras;
+use App\Shared\Models\Empresa;
 
 class VentaService
 {
@@ -1406,6 +1408,7 @@ class VentaService
         $venta =
             Venta::query()
                 ->with([
+                    'user',
                     'detalles.pasajero',
                     'detalles.asiento',
                     'detalles.asiento.piso',
@@ -1439,6 +1442,10 @@ class VentaService
                     $ventaId
                 );
 
+        $empresa =
+            Empresa::query()
+                ->first();
+
         return Pdf::loadView(
             'pasajes.ticket-thermal',
             [
@@ -1447,6 +1454,9 @@ class VentaService
 
                 'qrData' =>
                     $qrData,
+
+                'empresa' =>
+                    $empresa,
             ]
         );
     }

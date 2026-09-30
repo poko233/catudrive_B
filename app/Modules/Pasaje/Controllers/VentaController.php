@@ -180,15 +180,21 @@ class VentaController
         try {
             $venta = $this->ventaService->obtenerVenta($ventaId);
             $qrData = $this->ventaService->generarQrData($ventaId);
+            $empresa = \App\Shared\Models\Empresa::query()->first();
 
             return response()->view('pasajes.ticket-thermal', [
                 'venta' => $venta,
                 'qrData' => $qrData,
+                'empresa' => $empresa,
             ])->header('Content-Type', 'text/html');
         } catch (AccessDeniedHttpException $e) {
             return SecurityResponse::forbidden($e->getMessage());
         } catch (ModelNotFoundException) {
-            return response()->json(['success' => false, 'message' => 'Venta no encontrada.', 'code' => 'NOT_FOUND'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Venta no encontrada.',
+                'code' => 'NOT_FOUND',
+            ], 404);
         }
     }
 }

@@ -3,22 +3,8 @@
 
 <head>
     <meta charset="utf-8">
-
-    <title>
-        Ticket #{{ $venta->id }}
-    </title>
-
+    <title>Ticket #{{ $venta->id }}</title>
     <style>
-        /*
-        |--------------------------------------------------------------------------
-        | PAPEL
-        |--------------------------------------------------------------------------
-        |
-        | Papel físico: 58 mm
-        | Área útil:    48 mm
-        |
-        */
-
         @page {
             size: 48mm auto;
             margin: 0;
@@ -34,26 +20,14 @@
             box-sizing: border-box;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | CUERPO
-        |--------------------------------------------------------------------------
-        |
-        | Aumentado: 11px -> 13px
-        |
-        */
-
         body {
             font-family:
                 'DejaVu Sans Mono',
                 'Courier New',
                 monospace;
 
-            font-size: 13px;
-
-            /* NO CAMBIAR: ancho fijo de 48mm */
+            font-size: 12px;
             width: 48mm;
-
             margin: 0 auto;
             padding: 0;
 
@@ -61,13 +35,7 @@
             background: #fff;
 
             font-weight: 900;
-
-            line-height: 1.28;
-
-            position: relative;
-
-            /* NO CAMBIAR: compensa impresión corrida a la derecha */
-            left: -1.25mm;
+            line-height: 1.3;
 
             -webkit-font-smoothing: none;
             text-rendering: geometricPrecision;
@@ -75,7 +43,7 @@
 
         .ticket {
             width: 100%;
-            padding: 0;
+            padding: 1mm 0.5mm;
             margin: 0;
         }
 
@@ -88,179 +56,153 @@
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | LÍNEAS
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | TÍTULOS — SIGUEN GRANDES
+    |--------------------------------------------------------------------------
+    */
+
+        .title {
+            font-size: 15px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            font-weight: 900;
+        }
 
         .line {
             width: 100%;
             border-top: 1px dashed #000;
-            margin: 4px 0;
+            margin: 3px 0;
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | FILAS
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | FILA DATO : VALOR
+    |--------------------------------------------------------------------------
+    |
+    | ANTES: 12px / gap 2px
+    | AHORA: 11px / gap 4px
+    |
+    | El .value tiene flex:1 para aprovechar todo el espacio
+    | restante y quedar right-aligned sin pegarse al label.
+    |
+    */
 
         .row {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             gap: 4px;
-            margin-bottom: 2px;
+            margin-bottom: 0;
+            font-weight: 900;
+            font-size: 11px;
+        }
+
+        .row .label {
+            flex-shrink: 0;
             font-weight: 900;
         }
 
-        .row span:first-child {
-            flex-shrink: 0;
-        }
-
-        .row span:last-child {
+        .row .value {
+            flex: 1;
             text-align: right;
-            overflow-wrap: anywhere;
+            white-space: nowrap;
+            font-weight: 900;
         }
 
         /*
+    |--------------------------------------------------------------------------
+    | ITEMS DEL DETALLE
+    |--------------------------------------------------------------------------
+    |
+    | SIGUE EN 12px (donde sí cabe bien)
+    |
+    */
+
+        .item {
+            margin-bottom: 4px;
+            font-weight: 900;
+            font-size: 12px;
+        }
+
+        .item-header {
+            margin-bottom: 1px;
+            font-weight: 900;
+        }
+
+        .item-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 2px;
+            font-weight: 900;
+        }
+
+        .item-detail span:last-child {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | TOTALES
+    |--------------------------------------------------------------------------
+    */
+
+        .totales {
+            text-align: right;
+            font-weight: 900;
+            margin-top: 4px;
+            font-size: 12px;
+        }
+
+        .totales div {
+            margin-bottom: 1px;
+            font-weight: 900;
+        }
+
+        .totales .total-monto {
+            /*
         |--------------------------------------------------------------------------
-        | TABLA
+        | ANTES: 15px  ->  AHORA: 13px
         |--------------------------------------------------------------------------
         |
-        | th/td aumentado: 9px -> 12px
+        | A 15px "TOTAL MONTO Bs. 50.00" no cabía en una línea y
+        | el monto saltaba abajo. A 13px cabe sin wrap.
         |
         */
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
+            font-size: 13px;
+            margin-top: 3px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .son {
             margin-top: 4px;
             font-weight: 900;
-        }
-
-        th,
-        td {
             font-size: 12px;
-            text-align: left;
-            vertical-align: top;
-            padding: 2px 1px 2px 0;
+        }
+
+        .centavos {
+            margin-top: 1px;
             font-weight: 900;
-            overflow-wrap: anywhere;
+            font-size: 12px;
         }
 
-        th {
-            border-bottom: 1px solid #000;
-            padding-bottom: 3px;
+        .centavos .underline {
+            text-decoration: underline;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ANCHOS DE COLUMNAS
-        |--------------------------------------------------------------------------
-        |
-        | NO CAMBIAR: los porcentajes deben sumar 100%
-        |
-        */
-
-        th:nth-child(1),
-        td:nth-child(1) {
-            width: 22%;
-        }
-
-        th:nth-child(2),
-        td:nth-child(2) {
-            width: 30%;
-        }
-
-        th:nth-child(3),
-        td:nth-child(3) {
-            width: 20%;
-        }
-
-        th:nth-child(4),
-        td:nth-child(4) {
-            width: 28%;
-            text-align: right;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | QR
-        |--------------------------------------------------------------------------
-        */
-
-        .qr {
-            text-align: center;
-            margin: 7px 0 4px 0;
-        }
-
-        .qr img {
-            width: 120px;
-            height: 120px;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FOOTER
-        |--------------------------------------------------------------------------
-        |
-        | Aumentado: 9px -> 11px
-        |
-        */
 
         .footer {
             text-align: center;
-            margin-top: 4px;
+            margin-top: 6px;
             font-size: 11px;
             font-weight: 900;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | TÍTULO
-        |--------------------------------------------------------------------------
-        |
-        | Aumentado: 15px -> 18px
-        |
-        */
-
-        .brand {
-            font-size: 18px;
-            font-weight: 900;
-            line-height: 1.1;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RECEIPT NUMBER
-        |--------------------------------------------------------------------------
-        |
-        | Aumentado: 10px -> 12px
-        |
-        */
-
-        .receipt-number {
-            font-size: 12px;
-            margin-top: 2px;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | TOTAL
-        |--------------------------------------------------------------------------
-        |
-        | Aumentado: 13px -> 16px
-        |
-        */
-
-        .total-row {
-            font-size: 16px;
-            margin-top: 4px;
-            margin-bottom: 3px;
         }
     </style>
 </head>
@@ -270,377 +212,251 @@
     <div class="ticket">
 
         {{-- ================================================================
-        | CABECERA
+        | CABECERA — EMPRESA
         ================================================================ --}}
 
-        <div class="center bold brand">
-            CatuDrive
-        </div>
+        @if($empresa)
+            <div class="center title">
+                {{ $empresa->empresa }}
+            </div>
 
-        <div class="center receipt-number">
-            Comprobante #{{ $venta->id }}
-        </div>
+            @if($empresa->direccion)
+                <div class="center subtitle">
+                    {{ $empresa->direccion }}
+                </div>
+            @endif
 
-        <div class="line"></div>
-
-        {{-- ================================================================
-        | DATOS DE LA VENTA
-        ================================================================ --}}
-
-        <div class="row">
-            <span class="bold">
-                Estado:
-            </span>
-
-            <span>
-                {{ $venta->estado }}
-            </span>
-        </div>
-
-        <div class="row">
-            <span class="bold">
-                Fecha:
-            </span>
-
-            <span>
-                {{ now()->format('d/m/Y H:i') }}
-            </span>
-        </div>
-
-        <div class="row">
-            <span class="bold">
-                Origen:
-            </span>
-
-            <span>
-                {{ $venta->viaje->vehiculoChoferRuta->ruta->origen ?? '-' }}
-            </span>
-        </div>
-
-        <div class="row">
-            <span class="bold">
-                Destino:
-            </span>
-
-            <span>
-                {{ $venta->viaje->vehiculoChoferRuta->ruta->destino ?? '-' }}
-            </span>
-        </div>
-
-        {{-- ================================================================
-        | FECHAS DEL VIAJE
-        ================================================================ --}}
+            @if($empresa->telefono)
+                <div class="center subtitle">
+                    Teléfono: {{ $empresa->telefono }}
+                </div>
+            @endif
+        @endif
 
         @php
-            $vcr = $venta->viaje->vehiculoChoferRuta ?? null;
-            $ruta = $vcr?->ruta ?? null;
+            $vcr = $venta->viaje?->vehiculoChoferRuta;
+            $ruta = $vcr?->ruta;
+            $vehiculo = $vcr?->asignacion?->vehiculo;
+            $chofer = $vcr?->asignacion?->chofer?->usuario;
+
+            $placaTexto = $vehiculo?->placa ?? '-';
+            $colorTexto = $vehiculo?->color ?: '-';
+
+            $choferTexto = $chofer
+                ? trim(implode(' ', array_filter([
+                    $chofer->nombres,
+                    $chofer->primer_apellido,
+                ])))
+                : '-';
 
             /*
             |--------------------------------------------------------------------------
-            | FUENTE DE VERDAD PARA LA HORA DE SALIDA
+            | USUARIO VENDEDOR — usuario (login) + nombre completo
             |--------------------------------------------------------------------------
-            |
-            | Usamos la hora real del viaje (vehiculo_chofer_ruta.hora_inicio)
-            | y no la hora base de la ruta (ruta.hora_inicio).
-            |
             */
 
-            $fechaSalida = $vcr?->hora_inicio
-                ? $vcr->hora_inicio->format('d/m/Y')
-                : null;
+            $user = $venta->user;
 
-            $horaSalida = $vcr?->hora_inicio
-                ? $vcr->hora_inicio->format('H:i')
-                : null;
+            $usuarioLogin = $user?->usuario ?? '-';
 
-            $fechaLlegada = $ruta?->fecha_fin
-                ? \Carbon\Carbon::parse($ruta->fecha_fin)->format('d/m/Y')
-                : null;
+            $usuarioNombre = $user
+                ? trim(implode(' ', array_filter([
+                    $user->nombres,
+                    $user->primer_apellido,
+                    $user->segundo_apellido,
+                ])))
+                : '-';
 
-            $horaLlegada = $ruta?->hora_fin
-                ? substr($ruta->hora_fin, 0, 5)
-                : null;
+            if ($usuarioNombre === '') {
+                $usuarioNombre = '-';
+            }
         @endphp
 
-        <div class="row">
-            <span class="bold">
-                Salida:
-            </span>
-
-            <span>
-                {{
-    trim(
-        ($fechaSalida ?? '-') .
-        ' ' .
-        ($horaSalida ?? '')
-    )
-                }}
-            </span>
-        </div>
-
-        <div class="row">
-            <span class="bold">
-                Llegada:
-            </span>
-
-            <span>
-                {{
-    trim(
-        ($fechaLlegada ?? '-') .
-        ' ' .
-        ($horaLlegada ?? '')
-    )
-                }}
-            </span>
-        </div>
-
-        {{-- ================================================================
-        | VEHÍCULO
-        ================================================================ --}}
-
-        <div class="row">
-            <span class="bold">
-                Vehículo:
-            </span>
-
-            <span>
-                {{
-    $venta
-        ->viaje
-        ->vehiculoChoferRuta
-        ->asignacion
-        ->vehiculo
-        ->placa
-    ?? '-'
-                }}
-            </span>
-        </div>
-
-        {{-- ================================================================
-        | CHOFER
-        ================================================================ --}}
-
-        <div class="row">
-            <span class="bold">
-                Chofer:
-            </span>
-
-            <span>
-                {{
-    trim(
-        (
-            $venta
-                ->viaje
-                ->vehiculoChoferRuta
-                ->asignacion
-                ->chofer
-                ->usuario
-                ->nombres
-            ?? ''
-        )
-        .
-        ' '
-        .
-        (
-            $venta
-                ->viaje
-                ->vehiculoChoferRuta
-                ->asignacion
-                ->chofer
-                ->usuario
-                ->primer_apellido
-            ?? ''
-        )
-    )
-    ?: '-'
-                }}
-            </span>
-        </div>
-
-        <div class="line"></div>
-
-        {{-- ================================================================
-        | PASAJEROS
-        ================================================================ --}}
-
-        <table>
-
-            <thead>
-                <tr>
-                    <th>
-                        Piso/As.
-                    </th>
-
-                    <th>
-                        Pasajero
-                    </th>
-
-                    <th>
-                        CI
-                    </th>
-
-                    <th>
-                        Precio
-                    </th>
-                </tr>
-            </thead>
-
-            <tbody>
-
-                @foreach(
-                                $venta->detalles
-                                as $detalle
-                            )
-
-                            @php
-                                $piso =
-                                    $detalle
-                                        ->asiento
-                                            ?->piso;
-
-                                $numeroAsiento =
-                                    $detalle
-                                        ->asiento
-                                        ->numero_asiento
-                                    ??
-                                    (
-                                        (
-                                            $detalle
-                                                ->asiento
-                                                ->fila
-                                            ?? '-'
-                                        )
-                                        .
-                                        '-'
-                                        .
-                                        (
-                                            $detalle
-                                                ->asiento
-                                                ->columna
-                                            ?? '-'
-                                        )
-                                    );
-
-                                $pisoAsiento =
-                                    $piso
-                                    ? 'P' .
-                                    $piso->numero .
-                                    '-' .
-                                    $numeroAsiento
-                                    : $numeroAsiento;
-                            @endphp
-
-                            <tr>
-
-                                <td>
-                                    {{ $pisoAsiento }}
-                                </td>
-
-                                <td>
-
-                                    @if(
-                                                        $detalle->pasajero
-                                                    )
-
-                                                    {{
-                                        strtoupper(
-                                            $detalle
-                                                ->pasajero
-                                                ->apellido_paterno
-                                        )
-                                                            }}
-
-                                                    {{
-                                        strtoupper(
-                                            mb_substr(
-                                                $detalle
-                                                    ->pasajero
-                                                    ->nombres,
-                                                0,
-                                                1
-                                            )
-                                        )
-                                                            }}.
-
-                                    @else
-
-                                        -
-
-                                    @endif
-
-                                </td>
-
-                                <td>
-                                    {{
-                    $detalle
-                        ->pasajero
-                        ->ci
-                    ?? '-'
-                                        }}
-                                </td>
-
-                                <td>
-                                    Bs
-                                    {{
-                    number_format(
-                        $detalle
-                            ->precio_unitario,
-                        2
-                    )
-                                        }}
-                                </td>
-
-                            </tr>
-
-                @endforeach
-
-            </tbody>
-
-        </table>
-
-        <div class="line"></div>
-
-        {{-- ================================================================
-        | TOTAL
-        ================================================================ --}}
-
-        <div class="row bold total-row">
-
-            <span>
-                TOTAL
-            </span>
-
-            <span>
-                Bs
-                {{
-    number_format(
-        $venta->precio_total,
-        2
-    )
-                }}
-            </span>
-
-        </div>
-
-        {{-- ================================================================
-        | QR
-        ================================================================ --}}
-
-        @if(
-                isset($qrData)
-            )
-
-            <div class="qr">
-
-                <img src="{{ $qrData }}" alt="QR">
-
+        @if($ruta?->origen)
+            <div class="center subtitle">
+                {{ $ruta->origen }}
             </div>
-
         @endif
 
+        <div class="center title" style="margin-top: 6px;">
+            BOLETO DE VIAJE
+        </div>
+
+        <div class="line"></div>
+
         {{-- ================================================================
-        | FOOTER
+        | DATOS GENERALES
         ================================================================ --}}
+
+        <div class="row">
+            <span class="label">Fecha:</span>
+            <span class="value">{{ now()->format('d/m/Y H:i') }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">Boleto:</span>
+            <span class="value">{{ $venta->id }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">Origen:</span>
+            <span class="value">{{ $ruta?->origen ?? '-' }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">Destino:</span>
+            <span class="value">{{ $ruta?->destino ?? '-' }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">Salida:</span>
+            <span class="value">
+                {{ $vcr?->hora_inicio?->format('d/m/Y H:i') ?? '-' }}
+            </span>
+        </div>
+
+        <div class="row">
+            <span class="label">PLACA:</span>
+            <span class="value">{{ $placaTexto }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">COLOR:</span>
+            <span class="value">{{ $colorTexto }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">Chofer:</span>
+            <span class="value">{{ $choferTexto }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">T. Pago:</span>
+            <span class="value">{{ $venta->forma_pago ?? '-' }}</span>
+        </div>
+
+        <div class="line"></div>
+        <div class="center bold">DETALLE</div>
+        <div class="line"></div>
+
+        {{-- ================================================================
+        | DETALLE
+        ================================================================ --}}
+
+        @php
+            $totalProductos = 0;
+            $subtotal = 0.0;
+        @endphp
+
+        @foreach($venta->detalles as $detalle)
+
+            @php
+                $piso = $detalle->asiento?->piso;
+
+                $numeroAsiento =
+                    $detalle->asiento?->numero_asiento
+                    ?? (
+                        ($detalle->asiento?->fila ?? '-')
+                        . '-' .
+                        ($detalle->asiento?->columna ?? '-')
+                    );
+
+                $codigoAsiento = $piso
+                    ? 'P' . $piso->numero . '-' . $numeroAsiento
+                    : $numeroAsiento;
+
+                /*
+                |--------------------------------------------------------------------------
+                | PASAJERO — APELLIDO PATERNO + NOMBRES + CI
+                |--------------------------------------------------------------------------
+                */
+
+                $pasajero = $detalle->pasajero;
+
+                if ($pasajero) {
+                    $apellido = strtoupper(
+                        (string) $pasajero->apellido_paterno
+                    );
+
+                    $nombres = strtoupper(
+                        trim((string) $pasajero->nombres)
+                    );
+
+                    $ciPasajero = $pasajero->ci
+                        ? ' (' . $pasajero->ci . ')'
+                        : '';
+
+                    $nombrePasajero = trim(
+                        $apellido . ' ' . $nombres . $ciPasajero
+                    );
+                } else {
+                    $nombrePasajero = '(SIN PASAJERO)';
+                }
+
+                $precio = (float) $detalle->precio_unitario;
+
+                $totalProductos += 1;
+                $subtotal += $precio;
+            @endphp
+
+            <div class="item">
+                <div class="item-header">
+                    {{ $codigoAsiento }} | {{ $nombrePasajero }}
+                </div>
+
+                <div class="item-detail">
+                    <span>1 x Bs. {{ number_format($precio, 2) }}</span>
+                    <span>Bs. {{ number_format($precio, 2) }}</span>
+                </div>
+            </div>
+
+        @endforeach
+
+        <div class="line"></div>
+
+        {{-- ================================================================
+        | TOTALES — SIN DESCUENTO
+        ================================================================ --}}
+
+        @php
+            $totalMonto = (float) $venta->precio_total;
+            $centavos = (int) round(($totalMonto - floor($totalMonto)) * 100);
+            $montoEnLetras = \App\Shared\Helpers\NumeroALetras::convertir($totalMonto);
+        @endphp
+
+        <div class="totales">
+            <div>TOTAL PRODUCTOS {{ $totalProductos }}</div>
+            <div>SUBTOTAL Bs. {{ number_format($subtotal, 2) }}</div>
+            <div class="total-monto">
+                TOTAL MONTO Bs. {{ number_format($totalMonto, 2) }}
+            </div>
+        </div>
+
+        <div class="son">
+            Son: {{ $montoEnLetras }}
+        </div>
+
+        <div class="centavos">
+            <span class="underline">
+                {{ str_pad((string) $centavos, 2, '0', STR_PAD_LEFT) }}
+            </span>/100 Bolivianos
+        </div>
+
+        <div class="line"></div>
+
+        {{-- ================================================================
+        | USUARIO Y FOOTER
+        ================================================================ --}}
+
+        <div class="row">
+            <span class="label">USUARIO:</span>
+            <span class="value">{{ $usuarioLogin }}</span>
+        </div>
+
+        <div class="row">
+            <span class="label">NOMBRE:</span>
+            <span class="value">{{ $usuarioNombre }}</span>
+        </div>
 
         <div class="footer">
             Gracias por su compra
@@ -648,15 +464,10 @@
 
     </div>
 
-    {{-- ================================================================
-    | IMPRESIÓN WEB
-    ================================================================ --}}
-
     <script>
-        window.onload =
-            function () {
-                window.print();
-            };
+        window.onload = function () {
+            window.print();
+        };
     </script>
 
 </body>
