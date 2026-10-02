@@ -17,20 +17,15 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
     */
 
     Route::prefix('tipos-transaccion')->group(function (): void {
-        Route::get('/', [TipoTransaccionController::class, 'index'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/', [TipoTransaccionController::class, 'index']);
 
-        Route::post('/', [TipoTransaccionController::class, 'store'])
-            ->middleware('permiso:Arqueo,Arqueo,Crear');
+        Route::post('/', [TipoTransaccionController::class, 'store']);
 
-        Route::get('/{tipoTransaccion}', [TipoTransaccionController::class, 'show'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/{tipoTransaccion}', [TipoTransaccionController::class, 'show']);
 
-        Route::put('/{tipoTransaccion}', [TipoTransaccionController::class, 'update'])
-            ->middleware('permiso:Arqueo,Arqueo,Editar');
+        Route::put('/{tipoTransaccion}', [TipoTransaccionController::class, 'update']);
 
-        Route::delete('/{tipoTransaccion}', [TipoTransaccionController::class, 'destroy'])
-            ->middleware('permiso:Arqueo,Arqueo,Eliminar');
+        Route::delete('/{tipoTransaccion}', [TipoTransaccionController::class, 'destroy']);
     });
 
     /*
@@ -44,8 +39,7 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
     */
 
     Route::prefix('arqueos')->group(function (): void {
-        Route::get('/', [ArqueoController::class, 'index'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/', [ArqueoController::class, 'index']);
 
         Route::get('/abierto', [ArqueoController::class, 'abierto']);
 
@@ -55,8 +49,7 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
 
         Route::patch('/{arqueo}/cerrar', [ArqueoController::class, 'cerrar']);
 
-        Route::delete('/{arqueo}', [ArqueoController::class, 'destroy'])
-            ->middleware('permiso:Arqueo,Arqueo,Eliminar');
+        Route::delete('/{arqueo}', [ArqueoController::class, 'destroy']);
     });
 
     /*
@@ -84,19 +77,14 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
     */
 
     Route::prefix('egresos')->group(function (): void {
-        Route::get('/', [EgresoController::class, 'index'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/', [EgresoController::class, 'index']);
 
-        Route::post('/', [EgresoController::class, 'store'])
-            ->middleware('permiso:Arqueo,Arqueo,Crear');
+        Route::post('/', [EgresoController::class, 'store']);
 
-        Route::get('/{egreso}', [EgresoController::class, 'show'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/{egreso}', [EgresoController::class, 'show']);
 
-        Route::post('/{egreso}/anular', [EgresoController::class, 'anular'])
-            ->middleware('permiso:Arqueo,Arqueo,Editar');
+        Route::post('/{egreso}/anular', [EgresoController::class, 'anular']);
 
-        Route::get('/{egreso}/comprobante', [EgresoController::class, 'comprobante'])
-            ->middleware('permiso:Arqueo,Arqueo,Ver');
+        Route::get('/{egreso}/comprobante', [EgresoController::class, 'comprobante']);
     });
 });
