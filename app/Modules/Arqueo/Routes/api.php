@@ -18,19 +18,19 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
 
     Route::prefix('tipos-transaccion')->group(function (): void {
         Route::get('/', [TipoTransaccionController::class, 'index'])
-            ->middleware('permiso:Arqueo,TipoTransaccion,Ver');
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
 
         Route::post('/', [TipoTransaccionController::class, 'store'])
-            ->middleware('permiso:Arqueo,TipoTransaccion,Crear');
+            ->middleware('permiso:Arqueo,Arqueo,Crear');
 
         Route::get('/{tipoTransaccion}', [TipoTransaccionController::class, 'show'])
-            ->middleware('permiso:Arqueo,TipoTransaccion,Ver');
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
 
         Route::put('/{tipoTransaccion}', [TipoTransaccionController::class, 'update'])
-            ->middleware('permiso:Arqueo,TipoTransaccion,Editar');
+            ->middleware('permiso:Arqueo,Arqueo,Editar');
 
         Route::delete('/{tipoTransaccion}', [TipoTransaccionController::class, 'destroy'])
-            ->middleware('permiso:Arqueo,TipoTransaccion,Eliminar');
+            ->middleware('permiso:Arqueo,Arqueo,Eliminar');
     });
 
     /*
@@ -85,18 +85,18 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
 
     Route::prefix('egresos')->group(function (): void {
         Route::get('/', [EgresoController::class, 'index'])
-            ->middleware('permiso:Arqueo,Egreso,Ver');
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
 
         Route::post('/', [EgresoController::class, 'store'])
-            ->middleware('permiso:Arqueo,Egreso,Crear');
+            ->middleware('permiso:Arqueo,Arqueo,Crear');
 
         Route::get('/{egreso}', [EgresoController::class, 'show'])
-            ->middleware('permiso:Arqueo,Egreso,Ver');
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
 
         Route::post('/{egreso}/anular', [EgresoController::class, 'anular'])
-            ->middleware('permiso:Arqueo,Egreso,Editar');
+            ->middleware('permiso:Arqueo,Arqueo,Editar');
 
         Route::get('/{egreso}/comprobante', [EgresoController::class, 'comprobante'])
-            ->middleware('permiso:Arqueo,Egreso,Ver');
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
     });
 });
