@@ -56,6 +56,9 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function (): void {
         Route::get('/{arqueo}', [ArqueoController::class, 'show'])
             ->middleware('permiso:Arqueo,Arqueo,Ver');
 
+        Route::get('/{arqueo}/comprobante', [ArqueoController::class, 'comprobante'])
+            ->middleware('permiso:Arqueo,Arqueo,Ver');
+
         Route::patch('/{arqueo}/cerrar', [ArqueoController::class, 'cerrar'])
             ->middleware('permiso:Arqueo,Arqueo,Editar');
 

@@ -12,6 +12,7 @@ use App\Modules\Arqueo\Services\ArqueoService;
 use App\Shared\Models\Arqueo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ArqueoController
@@ -63,6 +64,12 @@ class ArqueoController
         $arqueo = $this->arqueoService->obtenerArqueoConDetalle((int) $arqueo->id);
 
         return new ArqueoResource($arqueo);
+    }
+
+    public function comprobante(Arqueo $arqueo): Response
+    {
+        return response($this->arqueoService->renderHtmlArqueo((int) $arqueo->id), 200)
+            ->header('Content-Type', 'text/html; charset=UTF-8');
     }
 
     public function cerrar(CerrarArqueoRequest $request, Arqueo $arqueo): ArqueoResource
