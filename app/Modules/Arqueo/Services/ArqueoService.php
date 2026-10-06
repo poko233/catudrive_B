@@ -450,6 +450,29 @@ class ArqueoService
         ])->render();
     }
 
+    /** Renderiza el resumen completo del arqueo en formato térmico 58 mm. */
+    public function renderHtmlArqueo(int $id): string
+    {
+        $arqueo = $this->obtenerArqueoConDetalle($id);
+        $ingresos = $arqueo->ingresos->where('estado', 'Valido')->values();
+        $egresos = $arqueo->egresos->where('estado', 'Valido')->values();
+        $totalIngresos = (float) $ingresos->sum('monto');
+        $totalEgresos = (float) $egresos->sum('monto');
+        $porMetodo = [];
+        foreach (['Efectivo', 'Tarjeta', 'QR', 'Transferencia'] as $metodo) {
+            $entrada = (float) $ingresos->where('tipo_pago', $metodo)->sum('monto');
+            $salida = (float) $egresos->where('tipo_pago', $metodo)->sum('monto');
+            $porMetodo[$metodo] = $entrada - $salida;
+        }
+        $totalGeneral = $arqueo->total_general !== null
+            ? (float) $arqueo->total_general
+            : (float) $arqueo->saldo_anterior + $totalIngresos - $totalEgresos;
+
+        return view('arqueo.arqueo', compact(
+            'arqueo', 'ingresos', 'egresos', 'totalIngresos', 'totalEgresos', 'porMetodo', 'totalGeneral'
+        ) + ['generadoEn' => now()])->render();
+    }
+
     // ─────────────────────────────────────────────────────────────
     // INTERNOS
     // ─────────────────────────────────────────────────────────────
