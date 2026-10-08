@@ -253,7 +253,7 @@ class DatabaseSeeder extends Seeder
             'Superadmin' => '*',
             'Administrador' => ['Inicio', 'Configuracion', 'Vehiculos', 'Arqueo'],
             'Usuario' => ['Inicio'],
-            'Chofer' => ['Ventas', 'Encomiendas'],
+            'Chofer' => ['Ventas', 'Encomiendas', 'Arqueo'],
         ];
 
         foreach ($planModuloRol as $nombreRol => $modulosPermitidos) {
@@ -319,7 +319,7 @@ class DatabaseSeeder extends Seeder
                 'acciones' => ['Ver'],
             ],
             'Chofer' => [
-                'modulos' => ['Ventas', 'Encomiendas'],
+                'modulos' => ['Ventas', 'Encomiendas', 'Arqueo'],
                 'acciones' => ['Ver', 'Crear', 'Editar', 'Eliminar'],
             ],
         ];
@@ -414,7 +414,7 @@ class DatabaseSeeder extends Seeder
                 ]
             ]);
 
-            $this->command->info('✅ Selectores ocultos Chofer/Pasajes OK (2)');
+            $this->command->info('✅ Selectores ocultos Chofer/Pasajes OK (1)');
         } else {
             $this->command->warn('⚠️  No se pudieron sembrar selectores ocultos (Chofer o Pasajes no encontrado).');
         }
