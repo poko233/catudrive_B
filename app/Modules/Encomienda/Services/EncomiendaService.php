@@ -70,21 +70,33 @@ class EncomiendaService
         };
     }
 
-    public function listar(array $f = [], int $per = 15): LengthAwarePaginator
+    private function aplicarFiltrosListado(Builder $q, array $f): Builder
     {
-        $q = $this->queryBase();
-        if (!empty($f['estado']))
-            $q->where('estado', $this->estadoBD($f['estado']));
-        if (!empty($f['estado_pago']))
-            $q->where('estado_pago', ucfirst(strtolower($f['estado_pago'])));
-        if (!empty($f['lugar_pago']))
-            $q->where('lugar_pago', ucfirst(strtolower($f['lugar_pago'])));
+        if (!empty($f['estado'])) $q->where('estado', $this->estadoBD($f['estado']));
+        if (!empty($f['estado_pago'])) $q->where('estado_pago', ucfirst(strtolower($f['estado_pago'])));
+        if (!empty($f['tipo_pago'])) $q->where('tipo_pago', $f['tipo_pago']);
+        if (!empty($f['lugar_pago'])) $q->where('lugar_pago', ucfirst(strtolower($f['lugar_pago'])));
+        if (!empty($f['fecha_desde'])) $q->whereDate('created_at', '>=', $f['fecha_desde']);
+        if (!empty($f['fecha_hasta'])) $q->whereDate('created_at', '<=', $f['fecha_hasta']);
+        if (!empty($f['id_cliente'])) {
+            $idCliente = (int) $f['id_cliente'];
+            $q->where(fn(Builder $c) => $c->where('id_remitente', $idCliente)->orWhere('id_destinatario', $idCliente));
+        }
+        if (!empty($f['id_chofer'])) {
+            $idChofer = (int) $f['id_chofer'];
+            $q->whereHas('viajeEncomienda.viaje.vehiculoChoferRuta.asignacion', fn(Builder $a) => $a->where('id_chofer', $idChofer));
+        }
         $b = trim((string) ($f['buscar'] ?? ''));
         if ($b !== '') {
             $like = "%{$b}%";
             $q->where(fn(Builder $s) => $s->where('guia', 'like', $like)->orWhere('concepto', 'like', $like)->orWhereHas('remitente', fn(Builder $c) => $this->buscarCliente($c, $like))->orWhereHas('destinatario', fn(Builder $c) => $this->buscarCliente($c, $like))->orWhereHas('detalles', fn(Builder $d) => $d->where('detalle', 'like', $like)));
         }
-        return $q->orderByDesc('id')->paginate(max(1, min($per, 100)));
+        return $q;
+    }
+
+    public function listar(array $f = [], int $per = 15): LengthAwarePaginator
+    {
+        return $this->aplicarFiltrosListado($this->queryBase(), $f)->orderByDesc('id')->paginate(max(1, min($per, 100)));
     }
 
     private function buscarCliente(Builder $q, string $like): Builder
@@ -92,9 +104,9 @@ class EncomiendaService
         return $q->where('nombres', 'like', $like)->orWhere('apellido_paterno', 'like', $like)->orWhere('apellido_materno', 'like', $like)->orWhere('ci', 'like', $like)->orWhere('telefono', 'like', $like);
     }
 
-    public function resumen(): array
+    public function resumen(array $f = []): array
     {
-        $base = $this->aplicarScopeChofer(Encomienda::query());
+        $base = $this->aplicarFiltrosListado($this->aplicarScopeChofer(Encomienda::query()), $f);
         $conteos = (clone $base)->selectRaw('estado, COUNT(*) cantidad')->groupBy('estado')->pluck('cantidad', 'estado');
         return ['total' => (int) $conteos->sum(), 'enOrigen' => (int) ($conteos['En origen'] ?? 0), 'enTransito' => (int) ($conteos['En tránsito'] ?? 0), 'enDestino' => (int) ($conteos['En destino'] ?? 0), 'entregadas' => (int) ($conteos['Entregada'] ?? 0), 'anuladas' => (int) ($conteos['Anulada'] ?? 0), 'ingresos' => (float) (clone $base)->where('estado', '!=', 'Anulada')->where('estado_pago', 'Pagado')->sum('total')];
     }
@@ -131,7 +143,7 @@ class EncomiendaService
             $r = $vcr?->ruta;
             $a = $vcr?->asignacion;
             $u = $a?->chofer?->usuario;
-            return ['id' => (int) $v->id, 'estado' => $v->estado, 'hora_inicio' => $vcr?->hora_inicio?->format('Y-m-d H:i:s'), 'ruta' => $r ? ['id' => (int) $r->id, 'origen' => $r->origen, 'destino' => $r->destino, 'estado' => $r->estado] : null, 'chofer' => $a?->chofer ? ['id' => (int) $a->chofer->id, 'nombre' => trim(implode(' ', array_filter([$u?->nombres, $u?->primer_apellido, $u?->segundo_apellido]))), 'ci' => $u?->ci] : null, 'vehiculo' => $a?->vehiculo ? ['id' => (int) $a->vehiculo->id, 'placa' => $a->vehiculo->placa, 'tipo' => $a->vehiculo->tipo] : null];
+            return ['id' => (int) $v->id, 'estado' => $v->estado, 'hora_inicio' => $vcr?->hora_inicio?->format('Y-m-d H:i:s'), 'ruta' => $r ? ['id' => (int) $r->id, 'origen' => $r->origen, 'destino' => $r->destino, 'estado' => $r->estado] : null, 'chofer' => $a?->chofer ? ['id' => (int) $a->chofer->id, 'nombre' => trim(implode(' ', array_filter([$u?->nombres, $u?->primer_apellido, $u?->segundo_apellido]))), 'ci' => $u?->ci, 'telefono' => $u?->telefono] : null, 'vehiculo' => $a?->vehiculo ? ['id' => (int) $a->vehiculo->id, 'placa' => $a->vehiculo->placa, 'tipo' => $a->vehiculo->tipo] : null];
         })->values();
         return ['viajes' => $viajes, 'estados' => ['EN_ORIGEN', 'EN_TRANSITO', 'EN_DESTINO', 'ENTREGADA', 'ANULADA'], 'lugares_pago' => ['Origen', 'Destino'], 'estados_pago' => ['Pendiente', 'Pagado'], 'tipos_pago' => ['Efectivo', 'QR', 'Transferencia']];
     }

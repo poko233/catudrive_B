@@ -228,7 +228,13 @@ class ArqueoService
                 ->whereKey($arqueo->id)
                 ->lockForUpdate()
                 ->firstOrFail();
-
+            // Un chofer solo cierra su propio arqueo.
+            $idChofer = $this->choferContext->idChoferActual();
+            if ($idChofer !== null && (int) $bloqueado->id_user !== $idChofer) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException(
+                    'No tienes acceso a este arqueo.'
+                );
+            }
             if ($bloqueado->estado !== 'Iniciado') {
                 throw new RuntimeException('El arqueo ya está cerrado.');
             }
@@ -327,10 +333,14 @@ class ArqueoService
         $idChofer = $this->choferContext->idChoferActual();
 
         if ($idChofer !== null) {
-            // Punto de corte: cierre del arqueo anterior del chofer.
-            // Todo lo anterior ya fue liquidado/pagado.
-            $cutoff = $this->ultimoCierreDelChofer($idChofer, $arqueo);
+            // Un chofer solo ve su propio arqueo.
+            if ((int) $arqueo->id_user !== $idChofer) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException(
+                    'No tienes acceso a este arqueo.'
+                );
+            }
 
+            $cutoff = $this->ultimoCierreDelChofer($idChofer, $arqueo);
             $detalle = $this->detalleViajesDelChofer($idChofer, $cutoff);
 
             $arqueo->setAttribute('viajes_chofer', $detalle['viajes']);
@@ -365,6 +375,13 @@ class ArqueoService
     public function eliminarArqueo(Arqueo $arqueo): void
     {
         DB::transaction(function () use ($arqueo): void {
+            //  Un chofer solo elimina su propio arqueo.
+            $idChofer = $this->choferContext->idChoferActual();
+            if ($idChofer !== null && (int) $arqueo->id_user !== $idChofer) {
+                throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException(
+                    'No tienes acceso a este arqueo.'
+                );
+            }
             if ($arqueo->estado === 'Iniciado') {
                 throw new RuntimeException('No se puede eliminar un arqueo abierto.');
             }
@@ -448,6 +465,29 @@ class ArqueoService
             'egreso' => $egreso,
             'generadoEn' => now(),
         ])->render();
+    }
+
+    /** Renderiza el resumen completo del arqueo en formato térmico 58 mm. */
+    public function renderHtmlArqueo(int $id): string
+    {
+        $arqueo = $this->obtenerArqueoConDetalle($id);
+        $ingresos = $arqueo->ingresos->where('estado', 'Valido')->values();
+        $egresos = $arqueo->egresos->where('estado', 'Valido')->values();
+        $totalIngresos = (float) $ingresos->sum('monto');
+        $totalEgresos = (float) $egresos->sum('monto');
+        $porMetodo = [];
+        foreach (['Efectivo', 'Tarjeta', 'QR', 'Transferencia'] as $metodo) {
+            $entrada = (float) $ingresos->where('tipo_pago', $metodo)->sum('monto');
+            $salida = (float) $egresos->where('tipo_pago', $metodo)->sum('monto');
+            $porMetodo[$metodo] = $entrada - $salida;
+        }
+        $totalGeneral = $arqueo->total_general !== null
+            ? (float) $arqueo->total_general
+            : (float) $arqueo->saldo_anterior + $totalIngresos - $totalEgresos;
+
+        return view('arqueo.arqueo', compact(
+            'arqueo', 'ingresos', 'egresos', 'totalIngresos', 'totalEgresos', 'porMetodo', 'totalGeneral'
+        ) + ['generadoEn' => now()])->render();
     }
 
     // ─────────────────────────────────────────────────────────────

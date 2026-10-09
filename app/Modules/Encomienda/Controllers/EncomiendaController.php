@@ -68,7 +68,7 @@ class EncomiendaController extends Controller
 
             'resumen' =>
                 $this->service
-                    ->resumen(),
+                    ->resumen($request->validated()),
         ]);
     }
 
