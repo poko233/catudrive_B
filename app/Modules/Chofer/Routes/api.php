@@ -3,8 +3,35 @@
 declare(strict_types=1);
 
 use App\Modules\Chofer\Controllers\ChoferController;
+use App\Modules\Chofer\Controllers\ChoferDashboardController;
 use App\Modules\Chofer\Controllers\ChoferReporteController;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| DASHBOARD DE CHOFERES
+|--------------------------------------------------------------------------
+|
+| El controlador verifica los roles en el servidor:
+| - Administrador / Superadmin: todos los choferes.
+| - Chofer: exclusivamente su registro.
+| - Otros roles: 403.
+|
+| No utiliza el permiso CRUD Choferes,Ver, porque el chofer necesita
+| ver sus propios datos sin obtener acceso al listado administrativo.
+|
+*/
+
+Route::get(
+    '/dashboard/choferes',
+    [ChoferDashboardController::class, 'index']
+)
+    ->middleware([
+        'auth:sanctum',
+        'usuario.activo',
+        'throttle:api',
+    ])
+    ->name('dashboard.choferes');
 
 /*
 |--------------------------------------------------------------------------
