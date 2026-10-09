@@ -70,10 +70,10 @@ class VentaService
             $viaje
                 ->vehiculoChoferRuta
                 ?->asignacion
-                ?->id_chofer;
+                    ?->id_chofer;
 
         if (
-            (int)
+            (int) 
             $idChoferDelViaje !==
             $idChofer
         ) {
@@ -101,10 +101,10 @@ class VentaService
                 ->viaje
                 ?->vehiculoChoferRuta
                 ?->asignacion
-                ?->id_chofer;
+                    ?->id_chofer;
 
         if (
-            (int)
+            (int) 
             $idChoferDelViaje !==
             $idChofer
         ) {
@@ -160,10 +160,10 @@ class VentaService
 
         if (
             !empty(
-                $filtros[
-                    'origen'
-                ]
-            )
+            $filtros[
+                'origen'
+            ]
+        )
         ) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
@@ -182,10 +182,10 @@ class VentaService
 
         if (
             !empty(
-                $filtros[
-                    'destino'
-                ]
-            )
+            $filtros[
+                'destino'
+            ]
+        )
         ) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
@@ -202,31 +202,23 @@ class VentaService
             );
         }
 
-        if (
-            !empty(
-                $filtros[
-                    'fecha'
-                ]
-            )
-        ) {
-            $query->whereHas(
-                'vehiculoChoferRuta',
-                fn($q) =>
-                    $q->whereDate(
-                        'hora_inicio',
-                        $filtros[
-                            'fecha'
-                        ]
-                    )
-            );
+        if (!empty($filtros['fecha'])) {
+            $query->whereDate('created_at', $filtros['fecha']);
+        } elseif (!empty($filtros['fecha_desde']) || !empty($filtros['fecha_hasta'])) {
+            if (!empty($filtros['fecha_desde'])) {
+                $query->whereDate('created_at', '>=', $filtros['fecha_desde']);
+            }
+            if (!empty($filtros['fecha_hasta'])) {
+                $query->whereDate('created_at', '<=', $filtros['fecha_hasta']);
+            }
         }
 
         if (
             !empty(
-                $filtros[
-                    'estado'
-                ]
-            )
+            $filtros[
+                'estado'
+            ]
+        )
         ) {
             $query->where(
                 'estado',
@@ -238,10 +230,10 @@ class VentaService
 
         if (
             !empty(
-                $filtros[
-                    'vehiculo_id'
-                ]
-            )
+            $filtros[
+                'vehiculo_id'
+            ]
+        )
         ) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
@@ -257,10 +249,10 @@ class VentaService
 
         if (
             !empty(
-                $filtros[
-                    'chofer_id'
-                ]
-            )
+            $filtros[
+                'chofer_id'
+            ]
+        )
         ) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
@@ -297,7 +289,7 @@ class VentaService
         if (
             mb_strtolower(
                 trim(
-                    (string)
+                    (string) 
                     $ruta->estado
                 )
             ) !==
@@ -315,7 +307,7 @@ class VentaService
 
         return [
             'id_ruta' =>
-                (int)
+                (int) 
                 $ruta->id,
 
             'fecha' =>
@@ -374,10 +366,7 @@ class VentaService
         int $idRuta
     ): Viaje {
         return DB::transaction(
-            function () use (
-                $idAsignacion,
-                $idRuta
-            ): Viaje {
+            function () use ($idAsignacion, $idRuta): Viaje {
                 /*
                 |--------------------------------------------------------------------------
                 | BLOQUEAMOS LA RUTA
@@ -404,7 +393,7 @@ class VentaService
                 if (
                     mb_strtolower(
                         trim(
-                            (string)
+                            (string) 
                             $ruta->estado
                         )
                     ) !==
@@ -431,7 +420,7 @@ class VentaService
                 if (
                     mb_strtolower(
                         trim(
-                            (string)
+                            (string) 
                             $asignacion->estado
                         )
                     ) !==
@@ -450,7 +439,7 @@ class VentaService
 
                 $this->choferContext
                     ->validarPertenece(
-                        (int)
+                        (int) 
                         $asignacion
                             ->id_chofer
                     );
@@ -475,7 +464,7 @@ class VentaService
 
                 $horaInicioSolicitada =
                     trim(
-                        (string)
+                        (string) 
                         request()->input(
                             'hora_inicio',
                             ''
@@ -620,7 +609,7 @@ class VentaService
 
         $horaBase =
             trim(
-                (string)
+                (string) 
                 $ruta->hora_inicio
             );
 
@@ -645,7 +634,7 @@ class VentaService
 
         $fechaBase =
             $ruta->fecha_inicio
-                ?->format(
+                    ?->format(
                     'Y-m-d'
                 )
             ??
@@ -714,7 +703,7 @@ class VentaService
 
         $proximaHora =
             Carbon::parse(
-                (string)
+                (string) 
                 $ultimaHora
             )
                 ->addMinutes(
@@ -765,10 +754,10 @@ class VentaService
 
         $this->choferContext
             ->validarPertenece(
-                (int)
+                (int) 
                 $vehiculoChoferRuta
                     ->asignacion
-                    ?->id_chofer
+                        ?->id_chofer
             );
 
         $viaje =
@@ -937,10 +926,10 @@ class VentaService
                         'no_disponible';
                 } elseif (
                     isset(
-                        $ocupaciones[
-                            $asiento->id
-                        ]
-                    )
+                    $ocupaciones[
+                        $asiento->id
+                    ]
+                )
                 ) {
                     $estadoOcupacion =
                         $ocupaciones[
@@ -949,8 +938,8 @@ class VentaService
                             'estado_venta'
                         ] ===
                         'Pendiente'
-                            ? 'reservado'
-                            : 'vendido';
+                        ? 'reservado'
+                        : 'vendido';
 
                     $idVenta =
                         $ocupaciones[
@@ -1010,7 +999,7 @@ class VentaService
     // VENTAS
     // ─────────────────────────────────────────────────────────────
 
-      public function iniciarVenta(
+    public function iniciarVenta(
         int $idViaje,
         array $asientos,
         int $userId
@@ -1033,11 +1022,7 @@ class VentaService
         }
 
         return DB::transaction(
-            function () use (
-                $idViaje,
-                $asientos,
-                $userId
-            ) {
+            function () use ($idViaje, $asientos, $userId) {
                 foreach (
                     $asientos
                     as $asientoData
@@ -1108,7 +1093,7 @@ class VentaService
                     as $asientoData
                 ) {
                     $precio =
-                        (float)
+                        (float) 
                         $asientoData[
                             'precio_unitario'
                         ];
@@ -1156,10 +1141,7 @@ class VentaService
                 );
 
         DB::transaction(
-            function () use (
-                $detalle,
-                $datosPasajero
-            ) {
+            function () use ($detalle, $datosPasajero) {
                 if (
                     $detalle->id_pasajero
                 ) {
@@ -1233,12 +1215,7 @@ class VentaService
             );
 
         DB::transaction(
-            function () use (
-                $venta,
-                $formaPago,
-                $tipoPago,
-                $pasajeros
-            ) {
+            function () use ($venta, $formaPago, $tipoPago, $pasajeros) {
                 $detallesVenta =
                     $venta
                         ->detalles
@@ -1333,17 +1310,17 @@ class VentaService
 
                     $precioUnitario =
                         isset(
-                            $datosPasajero[
-                                'precio_unitario'
-                            ]
-                        )
-                            ? (float)
-                            $datosPasajero[
-                                'precio_unitario'
-                            ]
-                            : (float)
-                            $detalle
-                                ->precio_unitario;
+                        $datosPasajero[
+                            'precio_unitario'
+                        ]
+                    )
+                        ? (float) 
+                        $datosPasajero[
+                            'precio_unitario'
+                        ]
+                        : (float) 
+                        $detalle
+                            ->precio_unitario;
 
                     $detalle->update([
                         'id_pasajero' =>
@@ -1384,29 +1361,29 @@ class VentaService
                 $this->arqueoService
                     ->registrarIngreso(
                         idUser:
-                            (int)
-                            $venta
-                                ->id_user,
+                        (int) 
+                        $venta
+                            ->id_user,
 
                         tipoTransaccion:
-                            'VPASAJE',
+                        'VPASAJE',
 
                         monto:
-                            (float)
-                            $venta
-                                ->precio_total,
+                        (float) 
+                        $venta
+                            ->precio_total,
 
                         tipoPago:
-                            $tipoPago,
+                        $tipoPago,
 
                         detalle:
-                            $this
-                                ->construirDetalleIngreso(
-                                    $venta
-                                ),
+                        $this
+                            ->construirDetalleIngreso(
+                                $venta
+                            ),
 
                         nombreTipoTransaccion:
-                            'Venta de pasaje',
+                        'Venta de pasaje',
                     );
             }
         );
@@ -1446,9 +1423,7 @@ class VentaService
         }
 
         DB::transaction(
-            function () use (
-                $venta
-            ) {
+            function () use ($venta) {
                 $venta
                     ->detalles()
                     ->delete();
@@ -1487,9 +1462,7 @@ class VentaService
         }
 
         DB::transaction(
-            function () use (
-                $venta
-            ) {
+            function () use ($venta) {
                 /*
                 |--------------------------------------------------------------------------
                 | ANULAR INGRESO ASOCIADO
@@ -1544,10 +1517,7 @@ class VentaService
         }
 
         DB::transaction(
-            function () use (
-                $detalle,
-                $venta
-            ) {
+            function () use ($detalle, $venta) {
                 $detalle->delete();
 
                 $restantes =
@@ -1850,10 +1820,10 @@ class VentaService
 
         if (
             isset(
-                $mapa[
-                    $clave
-                ]
-            )
+            $mapa[
+                $clave
+            ]
+        )
         ) {
             return $mapa[
                 $clave

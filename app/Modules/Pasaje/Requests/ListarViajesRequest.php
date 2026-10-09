@@ -19,6 +19,8 @@ class ListarViajesRequest extends FormRequest
             'origen' => ['nullable', 'string', 'max:255'],
             'destino' => ['nullable', 'string', 'max:255'],
             'fecha' => ['nullable', 'date'],
+            'fecha_desde' => ['nullable', 'date'],
+            'fecha_hasta' => ['nullable', 'date', 'after_or_equal:fecha_desde'],
             'estado' => ['nullable', 'string', 'in:Vendiendo,En curso,Finalizado,Cancelado'],
             'vehiculo_id' => ['nullable', 'integer', 'exists:vehiculo,id'],
             'chofer_id' => ['nullable', 'integer', 'exists:chofer,id'],
