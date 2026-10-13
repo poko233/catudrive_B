@@ -1,42 +1,236 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="utf-8">
-<title>{{ $tipo === 'comprobante' ? 'Detalle de encomienda' : 'Etiqueta de encomienda' }}</title>
-<style>
-@page{size:48mm auto;margin:0}
-html,body{margin:0;padding:0}*{box-sizing:border-box}
-body{font-family:'DejaVu Sans Mono','Courier New',monospace;font-size:11px;width:48mm;margin:0 auto;padding:0;color:#000;background:#fff;font-weight:900;line-height:1.25;position:relative;left:-1.25mm;-webkit-font-smoothing:none;text-rendering:geometricPrecision}
-.ticket{width:100%;padding:0;margin:0}.center{text-align:center}.bold{font-weight:900}.brand{font-size:16px;line-height:1.1}.guide{font-size:12px;margin-top:2px}.line{width:100%;border-top:1px dashed #000;margin:4px 0}.row{display:flex;justify-content:space-between;align-items:flex-start;gap:4px;margin-bottom:2px}.row span:first-child{flex-shrink:0}
-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:4px;font-weight:900}th,td{font-size:9px;text-align:left;vertical-align:top;padding:2px 1px 2px 0;font-weight:900;overflow-wrap:anywhere;border-bottom:1px dotted #999}th{border-bottom:1px solid #000}th:nth-child(1),td:nth-child(1){width:43%}th:nth-child(2),td:nth-child(2){width:14%;text-align:center}th:nth-child(3),td:nth-child(3){width:21%;text-align:right}th:nth-child(4),td:nth-child(4){width:22%;text-align:right}
-.qr{text-align:center;margin:7px 0 4px}.qr img{width:120px;height:120px;image-rendering:pixelated;image-rendering:crisp-edges}.footer{text-align:center;margin-top:4px;font-size:9px}.total-row{font-size:12px;margin-top:3px}
-</style>
+    <meta charset="utf-8">
+    <title>{{ $tipo === 'comprobante' ? 'Detalle de encomienda' : 'Etiqueta de encomienda' }}</title>
+    <style>
+        @page {
+            size: 48mm auto;
+            margin: 0
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        /*
+|--------------------------------------------------------------------------
+| CUERPO — TIPOGRAFÍA TÉRMICA
+|--------------------------------------------------------------------------
+| - font-stack monoespaciado con Consolas (más parecida a Font A)
+| - letter-spacing negativo para comprimir horizontal
+| - line-height 1 para interlineado mínimo
+| - font-weight 900 para simular la impresión térmica
+*/
+
+        body {
+            font-family: 'DejaVu Sans Mono', 'Consolas', 'Courier New', monospace;
+            font-size: 11px;
+            width: 48mm;
+            margin: 0 auto;
+            padding: 0;
+            color: #000;
+            background: #fff;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.25px;
+            -webkit-font-smoothing: none;
+            text-rendering: geometricPrecision;
+        }
+
+        .ticket {
+            width: 100%;
+            padding: 0.5mm 0.3mm;
+            margin: 0
+        }
+
+        .center {
+            text-align: center
+        }
+
+        .bold {
+            font-weight: 900
+        }
+
+        .brand {
+            font-size: 16px;
+            line-height: 1;
+            letter-spacing: -0.2px
+        }
+
+        .guide {
+            font-size: 12px;
+            margin-top: 1px;
+            line-height: 1
+        }
+
+        .line {
+            width: 100%;
+            border-top: 1px dashed #000;
+            margin: 2px 0
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 4px;
+            margin-bottom: 0;
+            line-height: 1;
+        }
+
+        .row span:first-child {
+            flex-shrink: 0
+        }
+
+        .row span:last-child {
+            text-align: right;
+            white-space: nowrap
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 2px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        th,
+        td {
+            font-size: 9px;
+            text-align: left;
+            vertical-align: top;
+            padding: 1px 1px 1px 0;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+            border-bottom: 1px dotted #999;
+            line-height: 1;
+        }
+
+        th {
+            border-bottom: 1px solid #000
+        }
+
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 43%
+        }
+
+        th:nth-child(2),
+        td:nth-child(2) {
+            width: 14%;
+            text-align: center
+        }
+
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 21%;
+            text-align: right
+        }
+
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 22%;
+            text-align: right
+        }
+
+        .qr {
+            text-align: center;
+            margin: 4px 0 3px
+        }
+
+        .qr img {
+            width: 120px;
+            height: 120px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3px;
+            font-size: 9px;
+            line-height: 1
+        }
+
+        .total-row {
+            font-size: 12px;
+            margin-top: 2px;
+            line-height: 1
+        }
+    </style>
 </head>
-<body><div class="ticket">
-<div class="center bold brand">CatuDrive</div>
-<div class="center">{{ $tipo === 'comprobante' ? 'DETALLE DE ENCOMIENDA' : 'ENCOMIENDA' }}</div>
-<div class="center bold guide">{{ $encomienda->guia }}</div>
-<div class="line"></div>
-<div class="row"><span class="bold">Fecha:</span><span>{{ optional($encomienda->created_at)->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i') }}</span></div>
-<div class="row"><span class="bold">Estado:</span><span>{{ str_replace('_',' ', $encomienda->estado) }}</span></div>
-<div class="row"><span class="bold">Estado pago:</span><span>{{ $encomienda->estado_pago ?? '-' }}</span></div>
-<div class="row"><span class="bold">Ruta:</span><span>{{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ?? '-' }} → {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}</span></div>
-<div class="row"><span class="bold">Remitente:</span><span>{{ trim(implode(' ', array_filter([$encomienda->remitente?->nombres,$encomienda->remitente?->apellido_paterno,$encomienda->remitente?->apellido_materno]))) ?: '-' }}</span></div>
-<div class="row"><span class="bold">Destinatario:</span><span>{{ trim(implode(' ', array_filter([$encomienda->destinatario?->nombres,$encomienda->destinatario?->apellido_paterno,$encomienda->destinatario?->apellido_materno]))) ?: '-' }}</span></div>
-<div class="line"></div>
-<table><thead><tr><th>Detalle</th><th>Cant.</th><th>P/U</th><th>Subtotal</th></tr></thead><tbody>
-@forelse($encomienda->detalles as $detalle)<tr><td>{{ $detalle->detalle }}</td><td>{{ $detalle->cantidad }}</td><td>Bs {{ number_format((float)$detalle->precio_unitario,2) }}</td><td>Bs {{ number_format((float)$detalle->cantidad*(float)$detalle->precio_unitario,2) }}</td></tr>@empty<tr><td colspan="4">Sin detalle registrado.</td></tr>@endforelse
-</tbody></table>
-<div class="line"></div>
-<div class="row"><span class="bold">Cantidad:</span><span>{{ $encomienda->detalles->sum('cantidad') }}</span></div>
-@if((float)($encomienda->descuento ?? 0)>0)<div class="row"><span class="bold">Descuento:</span><span>Bs {{ number_format((float)$encomienda->descuento,2) }}</span></div>@endif
-<div class="row total-row"><span class="bold">TOTAL:</span><span>Bs {{ number_format((float)$encomienda->total,2) }}</span></div>
-@if($tipo === 'comprobante')<div class="row"><span class="bold">Concepto:</span><span>{{ $encomienda->concepto ?: '-' }}</span></div><div class="row"><span class="bold">Viaje:</span><span>#{{ $encomienda->viajeEncomienda?->id_viaje ?? '-' }}</span></div>@endif
-<div class="line"></div>
-@if($tipo !== 'comprobante')<div class="qr"><img src="{{ $qrImage }}" alt="QR"></div><div class="center footer">Escanee este código para consultar la encomienda</div>@endif
-<div class="center footer">Impreso: {{ now()->format('d/m/Y H:i') }}</div>
-</div>
 
-
+<body>
+    <div class="ticket">
+        <div class="center bold brand">CatuDrive</div>
+        <div class="center">{{ $tipo === 'comprobante' ? 'DETALLE DE ENCOMIENDA' : 'ENCOMIENDA' }}</div>
+        <div class="center bold guide">{{ $encomienda->guia }}</div>
+        <div class="line"></div>
+        <div class="row"><span
+                class="bold">Fecha:</span><span>{{ optional($encomienda->created_at)->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i') }}</span>
+        </div>
+        <div class="row"><span class="bold">Estado:</span><span>{{ str_replace('_', ' ', $encomienda->estado) }}</span>
+        </div>
+        <div class="row"><span class="bold">Estado pago:</span><span>{{ $encomienda->estado_pago ?? '-' }}</span></div>
+        <div class="row"><span
+                class="bold">Ruta:</span><span>{{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->origen ?? '-' }}
+                → {{ $encomienda->viajeEncomienda?->viaje?->vehiculoChoferRuta?->ruta?->destino ?? '-' }}</span></div>
+        <div class="row"><span
+                class="bold">Remitente:</span><span>{{ trim(implode(' ', array_filter([$encomienda->remitente?->nombres, $encomienda->remitente?->apellido_paterno, $encomienda->remitente?->apellido_materno]))) ?: '-' }}</span>
+        </div>
+        <div class="row"><span
+                class="bold">Destinatario:</span><span>{{ trim(implode(' ', array_filter([$encomienda->destinatario?->nombres, $encomienda->destinatario?->apellido_paterno, $encomienda->destinatario?->apellido_materno]))) ?: '-' }}</span>
+        </div>
+        <div class="line"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Detalle</th>
+                    <th>Cant.</th>
+                    <th>P/U</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($encomienda->detalles as $detalle)
+                    <tr>
+                        <td>{{ $detalle->detalle }}</td>
+                        <td>{{ $detalle->cantidad }}</td>
+                        <td>Bs {{ number_format((float) $detalle->precio_unitario, 2) }}</td>
+                        <td>Bs {{ number_format((float) $detalle->cantidad * (float) $detalle->precio_unitario, 2) }}</td>
+                </tr>@empty<tr>
+                    <td colspan="4">Sin detalle registrado.</td>
+                </tr>@endforelse
+            </tbody>
+        </table>
+        <div class="line"></div>
+        <div class="row"><span class="bold">Cantidad:</span><span>{{ $encomienda->detalles->sum('cantidad') }}</span>
+        </div>
+        @if((float) ($encomienda->descuento ?? 0) > 0)
+            <div class="row"><span class="bold">Descuento:</span><span>Bs
+        {{ number_format((float) $encomienda->descuento, 2) }}</span></div>@endif
+        <div class="row total-row"><span class="bold">TOTAL:</span><span>Bs
+                {{ number_format((float) $encomienda->total, 2) }}</span></div>
+        @if($tipo === 'comprobante')
+            <div class="row"><span class="bold">Concepto:</span><span>{{ $encomienda->concepto ?: '-' }}</span></div>
+            <div class="row"><span
+        class="bold">Viaje:</span><span>#{{ $encomienda->viajeEncomienda?->id_viaje ?? '-' }}</span></div>@endif
+        <div class="line"></div>
+        @if($tipo !== 'comprobante')
+            <div class="qr"><img src="{{ $qrImage }}" alt="QR"></div>
+        <div class="center footer">Escanee este código para consultar la encomienda</div>@endif
+        <div class="center footer">Impreso: {{ now()->format('d/m/Y H:i') }}</div>
+    </div>
 </body>
+
 </html>
