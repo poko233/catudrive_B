@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
  * - Recaudación: suma de detalle_venta.precio_unitario, como en PasajeReporteService.
  * - La venta pertenece al chofer/vehículo del viaje, NO al usuario que cobró.
  * - Egresos: movimientos Válidos del usuario-chofer (no se asignan a un vehículo).
- * - Balance referencial = recaudación por pasajes - egresos del chofer.
+ * - Encomiendas: solo pagadas, no anuladas ni eliminadas, asociadas al viaje del chofer.
+ * - Balance referencial = pasajes + encomiendas - egresos del chofer.
  * - No se suman los ingresos de arqueo porque las ventas generan ingresos
  *   automáticos en caja y eso duplicaría la recaudación.
  */
@@ -31,6 +32,7 @@ class ChoferDashboardIndicadoresService
         'ventas_pagadas',
         'pasajes_vendidos',
         'ingresos_pasajes',
+        'ingresos_encomiendas',
         'egresos_validos',
         'egresos_cantidad',
     ];
@@ -157,6 +159,46 @@ class ChoferDashboardIndicadoresService
             $vehiculosGlobal[$idVehiculo]['ingresos_pasajes'] += $monto;
         }
 
+        // Encomiendas: mismo criterio del reporte de Encomiendas (Pagado y
+        // no Anulada). La atribución se realiza por el viaje y su chofer,
+        // no por el usuario que registró/cobró la encomienda.
+        // Se agrupa una sola vez por encomienda para evitar sumar dos veces
+        // el total si existiera más de una vinculación de viaje.
+        $viajePorEncomienda = DB::table('viaje_encomienda')
+            ->select('id_encomienda')
+            ->selectRaw('MAX(id) as id_vinculo')
+            ->groupBy('id_encomienda');
+
+        $consultaEncomiendas = DB::table('encomienda as en')
+            ->joinSub($viajePorEncomienda, 'en_vinculo', 'en_vinculo.id_encomienda', '=', 'en.id')
+            ->join('viaje_encomienda as ven', 'ven.id', '=', 'en_vinculo.id_vinculo')
+            ->join('viaje as vi', 'vi.id', '=', 'ven.id_viaje')
+            ->join('vehiculo_chofer_ruta as vcr', 'vcr.id', '=', 'vi.id_vehiculo_chofer_ruta')
+            ->join('asignacion_vehiculo_chofer as avc', 'avc.id', '=', 'vcr.id_asignacion_vehiculo_chofer')
+            ->where('en.estado_pago', 'Pagado')
+            ->where('en.estado', '!=', 'Anulada')
+            ->whereNull('en.deleted_at')
+            ->whereIn('avc.id_chofer', $idsChofer);
+
+        if ($rango['desde'] !== null) {
+            // El registro de la encomienda es la fecha disponible en su tabla.
+            // Para pagos posteriores en destino, no existe fecha de cobro
+            // explícita en encomienda; por eso el resumen sin filtro (todos)
+            // es el recomendado para totales históricos.
+            $consultaEncomiendas->whereBetween('en.created_at', [$rango['desde'], $rango['hasta']]);
+        }
+
+        $encomiendas = $consultaEncomiendas
+            ->selectRaw('avc.id_chofer')
+            ->selectRaw('COALESCE(SUM(en.total), 0) as ingresos_encomiendas')
+            ->groupBy('avc.id_chofer')
+            ->get();
+
+        foreach ($encomiendas as $fila) {
+            $id = (int) $fila->id_chofer;
+            $porChofer[$id]['ingresos_encomiendas'] = round((float) $fila->ingresos_encomiendas, 2);
+        }
+
         // Los egresos tienen id_user, no id_vehiculo: se atribuyen al chofer,
         // nunca arbitrariamente a un auto.
         $consultaEgresos = DB::table('egreso')
@@ -222,6 +264,7 @@ class ChoferDashboardIndicadoresService
             'ventas_pagadas' => 0,
             'pasajes_vendidos' => 0,
             'ingresos_pasajes' => 0.0,
+            'ingresos_encomiendas' => 0.0,
             'egresos_validos' => 0.0,
             'egresos_cantidad' => 0,
             'saldo_referencial' => 0.0,
@@ -252,9 +295,10 @@ class ChoferDashboardIndicadoresService
     private function calcularDerivados(array &$indicadores): void
     {
         $indicadores['ingresos_pasajes'] = round($indicadores['ingresos_pasajes'], 2);
+        $indicadores['ingresos_encomiendas'] = round($indicadores['ingresos_encomiendas'], 2);
         $indicadores['egresos_validos'] = round($indicadores['egresos_validos'], 2);
         $indicadores['saldo_referencial'] = round(
-            $indicadores['ingresos_pasajes'] - $indicadores['egresos_validos'], 2
+            $indicadores['ingresos_pasajes'] + $indicadores['ingresos_encomiendas'] - $indicadores['egresos_validos'], 2
         );
         $indicadores['promedio_por_pasaje'] = $indicadores['pasajes_vendidos'] > 0
             ? round($indicadores['ingresos_pasajes'] / $indicadores['pasajes_vendidos'], 2)
