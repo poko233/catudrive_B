@@ -20,9 +20,22 @@
             box-sizing: border-box;
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | CUERPO — TIPOGRAFÍA Y COMPRESIÓN
+    |--------------------------------------------------------------------------
+    |
+    | - font-stack monospace (Font A es monospace bitmap)
+    | - letter-spacing negativo: comprime el ancho horizontal
+    | - line-height 1: mínimo vertical sin cortar ascendentes
+    | - font-weight 900: mantiene el peso de la impresión térmica
+    |
+    */
+
         body {
             font-family:
                 'DejaVu Sans Mono',
+                'Consolas',
                 'Courier New',
                 monospace;
 
@@ -35,7 +48,8 @@
             background: #fff;
 
             font-weight: 900;
-            line-height: 1.3;
+            line-height: 1;
+            letter-spacing: -0.25px;
 
             -webkit-font-smoothing: none;
             text-rendering: geometricPrecision;
@@ -43,7 +57,7 @@
 
         .ticket {
             width: 100%;
-            padding: 1mm 0.5mm;
+            padding: 0.5mm 0.3mm;
             margin: 0;
         }
 
@@ -57,7 +71,7 @@
 
         /*
     |--------------------------------------------------------------------------
-    | TÍTULOS — SIGUEN GRANDES
+    | TÍTULOS
     |--------------------------------------------------------------------------
     */
 
@@ -65,31 +79,33 @@
             font-size: 15px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.2px;
+            letter-spacing: -0.2px;
+            line-height: 1;
         }
 
         .subtitle {
             font-size: 11px;
             font-weight: 900;
+            line-height: 1;
+            letter-spacing: -0.2px;
         }
+
+        /*
+    |--------------------------------------------------------------------------
+    | LÍNEAS DIVISORIAS — MÍNIMO MARGEN VERTICAL
+    |--------------------------------------------------------------------------
+    */
 
         .line {
             width: 100%;
             border-top: 1px dashed #000;
-            margin: 3px 0;
+            margin: 2px 0;
         }
 
         /*
     |--------------------------------------------------------------------------
     | FILA DATO : VALOR
     |--------------------------------------------------------------------------
-    |
-    | ANTES: 12px / gap 2px
-    | AHORA: 11px / gap 4px
-    |
-    | El .value tiene flex:1 para aprovechar todo el espacio
-    | restante y quedar right-aligned sin pegarse al label.
-    |
     */
 
         .row {
@@ -100,6 +116,7 @@
             margin-bottom: 0;
             font-weight: 900;
             font-size: 11px;
+            line-height: 1;
         }
 
         .row .label {
@@ -118,20 +135,19 @@
     |--------------------------------------------------------------------------
     | ITEMS DEL DETALLE
     |--------------------------------------------------------------------------
-    |
-    | SIGUE EN 12px (donde sí cabe bien)
-    |
     */
 
         .item {
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             font-weight: 900;
             font-size: 12px;
+            line-height: 1;
         }
 
         .item-header {
-            margin-bottom: 1px;
+            margin-bottom: 0;
             font-weight: 900;
+            line-height: 1;
         }
 
         .item-detail {
@@ -140,6 +156,7 @@
             align-items: flex-start;
             gap: 2px;
             font-weight: 900;
+            line-height: 1;
         }
 
         .item-detail span:last-child {
@@ -156,42 +173,37 @@
         .totales {
             text-align: right;
             font-weight: 900;
-            margin-top: 4px;
+            margin-top: 3px;
             font-size: 12px;
+            line-height: 1;
         }
 
         .totales div {
-            margin-bottom: 1px;
+            margin-bottom: 0;
             font-weight: 900;
+            line-height: 1;
         }
 
         .totales .total-monto {
-            /*
-        |--------------------------------------------------------------------------
-        | ANTES: 15px  ->  AHORA: 13px
-        |--------------------------------------------------------------------------
-        |
-        | A 15px "TOTAL MONTO Bs. 50.00" no cabía en una línea y
-        | el monto saltaba abajo. A 13px cabe sin wrap.
-        |
-        */
-
             font-size: 13px;
-            margin-top: 3px;
+            margin-top: 2px;
             font-weight: 900;
             white-space: nowrap;
+            line-height: 1;
         }
 
         .son {
-            margin-top: 4px;
+            margin-top: 3px;
             font-weight: 900;
             font-size: 12px;
+            line-height: 1;
         }
 
         .centavos {
-            margin-top: 1px;
+            margin-top: 0;
             font-weight: 900;
             font-size: 12px;
+            line-height: 1;
         }
 
         .centavos .underline {
@@ -200,9 +212,10 @@
 
         .footer {
             text-align: center;
-            margin-top: 6px;
+            margin-top: 4px;
             font-size: 11px;
             font-weight: 900;
+            line-height: 1;
         }
     </style>
 </head>
@@ -425,7 +438,7 @@
         @endphp
 
         <div class="totales">
-            <div>TOTAL PRODUCTOS {{ $totalProductos }}</div>
+            <div>TOTAL PASAJES {{ $totalProductos }}</div>
             <div>SUBTOTAL Bs. {{ number_format($subtotal, 2) }}</div>
             <div class="total-monto">
                 TOTAL MONTO Bs. {{ number_format($totalMonto, 2) }}
