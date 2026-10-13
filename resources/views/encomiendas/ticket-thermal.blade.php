@@ -20,16 +20,6 @@
             box-sizing: border-box
         }
 
-        /*
-|--------------------------------------------------------------------------
-| CUERPO — TIPOGRAFÍA TÉRMICA
-|--------------------------------------------------------------------------
-| - font-stack monoespaciado con Consolas (más parecida a Font A)
-| - letter-spacing negativo para comprimir horizontal
-| - line-height 1 para interlineado mínimo
-| - font-weight 900 para simular la impresión térmica
-*/
-
         body {
             font-family: 'DejaVu Sans Mono', 'Consolas', 'Courier New', monospace;
             font-size: 11px;
@@ -81,19 +71,26 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 4px;
+            gap: 3px;
             margin-bottom: 0;
             line-height: 1;
         }
 
         .row span:first-child {
-            flex-shrink: 0
+            flex-shrink: 0;
+            max-width: 42%;
+            font-weight: 900;
+            overflow-wrap: anywhere;
         }
 
         .row span:last-child {
+            flex: 1 1 auto;
+            min-width: 0;
             text-align: right;
-            white-space: nowrap
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
+
 
         table {
             width: 100%;
@@ -106,14 +103,15 @@
 
         th,
         td {
-            font-size: 9px;
+            font-size: 8px;
             text-align: left;
             vertical-align: top;
             padding: 1px 1px 1px 0;
             font-weight: 900;
             overflow-wrap: anywhere;
+            word-break: break-word;
             border-bottom: 1px dotted #999;
-            line-height: 1;
+            line-height: 1.05;
         }
 
         th {
@@ -122,7 +120,7 @@
 
         th:nth-child(1),
         td:nth-child(1) {
-            width: 43%
+            width: 40%
         }
 
         th:nth-child(2),
@@ -139,7 +137,7 @@
 
         th:nth-child(4),
         td:nth-child(4) {
-            width: 22%;
+            width: 25%;
             text-align: right
         }
 
@@ -159,7 +157,8 @@
             text-align: center;
             margin-top: 3px;
             font-size: 9px;
-            line-height: 1
+            line-height: 1;
+            overflow-wrap: anywhere
         }
 
         .total-row {
