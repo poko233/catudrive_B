@@ -20,7 +20,12 @@ class ViajeResource extends JsonResource
             'hora_salida' => $this->vehiculoChoferRuta?->hora_inicio?->format('Y-m-d H:i:s'),
             'tarifa' => $this->vehiculoChoferRuta?->ruta?->tarifa,
             'vehiculo' => $this->vehiculoChoferRuta?->asignacion?->vehiculo?->placa,
-            'chofer' => $this->vehiculoChoferRuta?->asignacion?->chofer?->usuario?->nombres . ' ' . $this->vehiculoChoferRuta?->asignacion?->chofer?->usuario?->primer_apellido,
+            'chofer' => trim(
+                ($this->vehiculoChoferRuta?->asignacion?->chofer?->usuario?->nombres ?? '')
+                . ' '
+                . ($this->vehiculoChoferRuta?->asignacion?->chofer?->usuario?->primer_apellido ?? '')
+            ),
+            'total_recaudado' => (float) ($this->total_recaudado ?? 0),
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }

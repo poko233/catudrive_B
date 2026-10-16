@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use App\Modules\Pasaje\Resources\ViajeCollection;
 
 class ViajeController
 {
@@ -32,16 +33,17 @@ class ViajeController
 
     public function index(
         ListarViajesRequest $request
-    ): AnonymousResourceCollection {
-        return ViajeResource::collection(
-            $this->ventaService->listarViajes(
-                $request->validated(),
-                (int) $request->input(
-                    'per_page',
-                    15
-                )
-            )
+    ): ViajeCollection {
+        $resultado = $this->ventaService->listarViajes(
+            $request->validated(),
+            (int) $request->input('per_page', 15)
         );
+
+        return (new ViajeCollection($resultado['paginator']))
+            ->withMeta([
+                'total_pagina' => $resultado['total_pagina'],
+                'total_filtrado' => $resultado['total_filtrado'],
+            ]);
     }
 
     /*
@@ -125,15 +127,15 @@ class ViajeController
 
             if (
                 !empty(
-                    $data[
-                        'id_vehiculo_chofer_ruta'
-                    ]
-                )
+                $data[
+                    'id_vehiculo_chofer_ruta'
+                ]
+            )
             ) {
                 return new ViajeResource(
                     $this->ventaService
                         ->crearViaje(
-                            (int)
+                            (int) 
                             $data[
                                 'id_vehiculo_chofer_ruta'
                             ]
@@ -165,12 +167,12 @@ class ViajeController
             return new ViajeResource(
                 $this->ventaService
                     ->crearViajeProgramado(
-                        (int)
+                        (int) 
                         $data[
                             'id_asignacion_vehiculo_chofer'
                         ],
 
-                        (int)
+                        (int) 
                         $data[
                             'id_ruta'
                         ]
@@ -228,8 +230,8 @@ class ViajeController
                         $viaje,
                         $request
                             ->validated()[
-                                'estado'
-                            ]
+                            'estado'
+                        ]
                     )
             );
         } catch (

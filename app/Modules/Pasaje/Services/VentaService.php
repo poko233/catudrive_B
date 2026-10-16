@@ -117,88 +117,107 @@ class VentaService
     // ─────────────────────────────────────────────────────────────
     // VIAJES
     // ─────────────────────────────────────────────────────────────
-
+    /**
+     * Lista viajes paginados + totales de recaudación.
+     *
+     * @return array{
+     *     paginator: \Illuminate\Contracts\Pagination\LengthAwarePaginator,
+     *     total_pagina: float,
+     *     total_filtrado: float
+     * }
+     */
     public function listarViajes(
         array $filtros,
         int $perPage = 15
-    ) {
-        $idChofer =
-            $this->choferContext
-                ->idChoferActual();
+    ): array {
+        $query = Viaje::query()
+            ->with([
+                'vehiculoChoferRuta.ruta',
+                'vehiculoChoferRuta.asignacion.vehiculo',
+                'vehiculoChoferRuta.asignacion.chofer.usuario',
+            ])
+            ->withSum(
+                [
+                    'ventas as total_recaudado' => fn($q) =>
+                        $q->where('estado', 'Pagada'),
+                ],
+                'precio_total'
+            )
+            ->orderByRaw(
+                "CASE estado
+                WHEN 'Vendiendo' THEN 0
+                WHEN 'En curso' THEN 1
+                ELSE 2
+            END"
+            )
+            ->orderBy('created_at', 'desc');
 
-        $query =
-            Viaje::query()
-                ->with([
-                    'vehiculoChoferRuta.ruta',
-                    'vehiculoChoferRuta.asignacion.vehiculo',
-                    'vehiculoChoferRuta.asignacion.chofer.usuario',
-                ])
-                ->orderByRaw(
-                    "CASE estado
-                        WHEN 'Vendiendo' THEN 0
-                        WHEN 'En curso' THEN 1
-                        ELSE 2
-                    END"
-                )
-                ->orderBy(
-                    'created_at',
-                    'desc'
-                );
+        $this->aplicarFiltrosViajes($query, $filtros);
 
-        if (
-            $idChofer !== null
-        ) {
+        $paginator = $query->paginate($perPage);
+
+        /*
+        |--------------------------------------------------------------------------
+        | TOTAL DE LA PÁGINA ACTUAL
+        |--------------------------------------------------------------------------
+        |
+        | Suma en PHP de los "total_recaudado" ya cargados. Barato: 15 items.
+        |
+        */
+
+        $totalPagina = (float) $paginator
+            ->getCollection()
+            ->sum('total_recaudado');
+
+        /*
+        |--------------------------------------------------------------------------
+        | TOTAL GLOBAL DEL FILTRO
+        |--------------------------------------------------------------------------
+        |
+        | Query agregada separada: todos los viajes que cumplen filtros,
+        | sin paginar, con sus ventas Pagadas sumadas.
+        |
+        */
+
+        $totalFiltrado = $this->calcularTotalFiltrado($filtros);
+
+        return [
+            'paginator' => $paginator,
+            'total_pagina' => $totalPagina,
+            'total_filtrado' => $totalFiltrado,
+        ];
+    }
+
+    /**
+     * Aplica el aislamiento por chofer y todos los filtros a la query de Viaje.
+     *
+     * Se extrae para reutilizarlo tanto en el listado paginado como en el
+     * cálculo del total global del filtro.
+     */
+    private function aplicarFiltrosViajes(
+        \Illuminate\Database\Eloquent\Builder $query,
+        array $filtros
+    ): void {
+        $idChofer = $this->choferContext->idChoferActual();
+
+        if ($idChofer !== null) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
-                fn($q) =>
-                    $q->where(
-                        'id_chofer',
-                        $idChofer
-                    )
+                fn($q) => $q->where('id_chofer', $idChofer)
             );
         }
 
-        if (
-            !empty(
-            $filtros[
-                'origen'
-            ]
-        )
-        ) {
+        if (!empty($filtros['origen'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
-                fn($q) =>
-                    $q->where(
-                        'origen',
-                        'like',
-                        '%' .
-                        $filtros[
-                            'origen'
-                        ] .
-                        '%'
-                    )
+                fn($q) => $q->where('origen', 'like', '%' . $filtros['origen'] . '%')
             );
         }
 
-        if (
-            !empty(
-            $filtros[
-                'destino'
-            ]
-        )
-        ) {
+        if (!empty($filtros['destino'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.ruta',
-                fn($q) =>
-                    $q->where(
-                        'destino',
-                        'like',
-                        '%' .
-                        $filtros[
-                            'destino'
-                        ] .
-                        '%'
-                    )
+                fn($q) => $q->where('destino', 'like', '%' . $filtros['destino'] . '%')
             );
         }
 
@@ -213,62 +232,43 @@ class VentaService
             }
         }
 
-        if (
-            !empty(
-            $filtros[
-                'estado'
-            ]
-        )
-        ) {
-            $query->where(
-                'estado',
-                $filtros[
-                    'estado'
-                ]
-            );
+        if (!empty($filtros['estado'])) {
+            $query->where('estado', $filtros['estado']);
         }
 
-        if (
-            !empty(
-            $filtros[
-                'vehiculo_id'
-            ]
-        )
-        ) {
+        if (!empty($filtros['vehiculo_id'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
-                fn($q) =>
-                    $q->where(
-                        'id_vehiculo',
-                        $filtros[
-                            'vehiculo_id'
-                        ]
-                    )
+                fn($q) => $q->where('id_vehiculo', $filtros['vehiculo_id'])
             );
         }
 
-        if (
-            !empty(
-            $filtros[
-                'chofer_id'
-            ]
-        )
-        ) {
+        if (!empty($filtros['chofer_id'])) {
             $query->whereHas(
                 'vehiculoChoferRuta.asignacion',
-                fn($q) =>
-                    $q->where(
-                        'id_chofer',
-                        $filtros[
-                            'chofer_id'
-                        ]
-                    )
+                fn($q) => $q->where('id_chofer', $filtros['chofer_id'])
             );
         }
+    }
 
-        return $query->paginate(
-            $perPage
-        );
+    /**
+     * Suma de ventas Pagadas en TODOS los viajes que cumplen los filtros.
+     *
+     * No pagina: es una query agregada independiente.
+     */
+    private function calcularTotalFiltrado(array $filtros): float
+    {
+        $query = Viaje::query();
+
+        $this->aplicarFiltrosViajes($query, $filtros);
+
+        $total = $query
+            ->join('venta', 'venta.id_viaje', '=', 'viaje.id')
+            ->where('venta.estado', 'Pagada')
+            ->whereNull('venta.deleted_at')
+            ->sum('venta.precio_total');
+
+        return (float) ($total ?? 0);
     }
 
     /*
