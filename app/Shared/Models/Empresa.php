@@ -53,6 +53,10 @@ class Empresa extends Model
     |--------------------------------------------------------------------------
     | Datos sensibles
     |--------------------------------------------------------------------------
+    |
+    | pwd_institucional y api_token nunca se exponen vía toArray().
+    | El Resource accede a ellos con property access (no vía toArray).
+    |
     */
 
     protected $hidden = [

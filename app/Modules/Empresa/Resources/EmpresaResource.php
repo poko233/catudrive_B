@@ -12,6 +12,17 @@ class EmpresaResource extends JsonResource
 {
     use GeneraUrlArchivo;
 
+    /**
+     * @param mixed $resource
+     */
+    public function __construct(
+        $resource,
+    ) {
+        parent::__construct(
+            $resource
+        );
+    }
+
     public function toArray(Request $request): array
     {
         return [

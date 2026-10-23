@@ -120,6 +120,7 @@ return new class extends Migration {
             $table->string('localidad', 30)->nullable();
             $table->string('imagen', 255)->nullable();
             $table->string('qr', 255)->nullable();
+            $table->text('api_token')->nullable();
             $table->enum('estado', ['Activo', 'Inactivo'])->default('Activo');
             $table->timestamps();
 

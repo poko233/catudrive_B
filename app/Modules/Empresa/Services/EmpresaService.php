@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Empresa\Services;
 
 use App\Shared\Models\Empresa;
+use App\Shared\Models\User;
 use App\Shared\Services\AppCacheService;
 use App\Shared\Services\ImageOptimizerService;
 use Illuminate\Http\UploadedFile;
@@ -31,7 +32,7 @@ class EmpresaService
 
     public function __construct(
         private readonly ImageOptimizerService $imageOptimizer,
-        private readonly AppCacheService $cache
+        private readonly AppCacheService $cache,
     ) {
     }
 
@@ -71,28 +72,28 @@ class EmpresaService
 
         $estado =
             isset(
+            $filtros['estado']
+        )
+            ? trim(
+                (string) 
                 $filtros['estado']
             )
-                ? trim(
-                    (string)
-                    $filtros['estado']
-                )
-                : null;
+            : null;
 
         $buscar =
             isset(
+            $filtros['buscar']
+        )
+            ? trim(
+                (string) 
                 $filtros['buscar']
             )
-                ? trim(
-                    (string)
-                    $filtros['buscar']
-                )
-                : null;
+            : null;
 
         return Empresa::query()
             ->when(
                 $estado,
-                fn ($query) =>
+                fn($query) =>
                     $query->where(
                         'estado',
                         $estado
@@ -100,17 +101,9 @@ class EmpresaService
             )
             ->when(
                 $buscar,
-                function (
-                    $query
-                ) use (
-                    $buscar
-                ): void {
+                function ($query) use ($buscar): void {
                     $query->where(
-                        function (
-                            $subquery
-                        ) use (
-                            $buscar
-                        ): void {
+                        function ($subquery) use ($buscar): void {
                             $subquery
                                 ->where(
                                     'empresa',
@@ -239,8 +232,8 @@ class EmpresaService
             $this
                 ->eliminarArchivoPublicoEmpresa(
                     is_string($ruta)
-                        ? $ruta
-                        : null
+                    ? $ruta
+                    : null
                 );
         }
     }
@@ -258,14 +251,13 @@ class EmpresaService
     |
     */
 
-    public function obtenerEmpresaPrincipal():
-        ?Empresa
-    {
+    public function obtenerEmpresaPrincipal(
+    ): ?Empresa {
         /** @var Empresa|null $empresa */
         $empresa =
             $this->cache->remember(
                 AppCacheService::EMPRESA,
-                static fn (): ?Empresa =>
+                static fn(): ?Empresa =>
                     Empresa::query()
                         ->orderByRaw(
                             "
@@ -370,7 +362,7 @@ class EmpresaService
             )
             &&
             $rutaAnterior !==
-                $rutaNueva
+            $rutaNueva
         ) {
             $this
                 ->eliminarArchivoPublicoEmpresa(
@@ -431,8 +423,8 @@ class EmpresaService
                 is_string(
                     $rutaAnterior
                 )
-                    ? $rutaAnterior
-                    : null
+                ? $rutaAnterior
+                : null
             );
 
         return $empresa->fresh();
@@ -461,10 +453,10 @@ class EmpresaService
     ): string {
         if (
             !isset(
-                self::IMAGE_FIELDS[
-                    $tipo
-                ]
-            )
+            self::IMAGE_FIELDS[
+                $tipo
+            ]
+        )
         ) {
             throw new InvalidArgumentException(
                 "Tipo de imagen no válido: {$tipo}"
@@ -545,5 +537,120 @@ class EmpresaService
                 $destino
             );
         }
+    }
+
+    /*
+   |--------------------------------------------------------------------------
+   | Resolver empresa para /mi-empresa
+   |--------------------------------------------------------------------------
+   |
+   | Orden de resolución:
+   |
+   |   1. Empresa del usuario autenticado (vía user_sucursal → sucursal).
+   |   2. Fallback: primera empresa activa (cacheada).
+   |   3. null → el controller devuelve 404.
+   |
+   | NO se cachea el paso 1: es una query indexada O(1) por request
+   | y cachear por usuario requeriría invalidación cruzada en
+   | user_sucursal y empresa.
+   |
+   */
+
+    public function resolverEmpresaParaMiEmpresa(
+        User $user
+    ): ?Empresa {
+        $empresa =
+            $this->obtenerEmpresaDelUsuario(
+                $user
+            );
+
+        if ($empresa !== null) {
+            return $empresa;
+        }
+
+        return $this
+            ->obtenerEmpresaPrincipal();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ¿El usuario pertenece a la empresa?
+    |--------------------------------------------------------------------------
+    |
+    | Se usa para cerrar el IDOR en show / update / destroy /
+    | uploadImagen / deleteImagen / updateApiToken.
+    |
+    | El bypass de super-admin se resuelve en el controller.
+    |
+    */
+
+    public function usuarioPerteneceAEmpresa(
+        User $user,
+        Empresa $empresa
+    ): bool {
+        return $user
+            ->sucursales()
+            ->where(
+                'sucursal.id_empresa',
+                $empresa->id
+            )
+            ->exists();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query: empresa del usuario
+    |--------------------------------------------------------------------------
+    |
+    | SELECT empresa.*
+    | FROM empresa
+    | INNER JOIN sucursal      ON sucursal.id_empresa       = empresa.id
+    | INNER JOIN user_sucursal ON user_sucursal.id_sucursal = sucursal.id
+    | WHERE user_sucursal.id_user = ?
+    | ORDER BY empresa.id ASC
+    | LIMIT 1
+    |
+    | Plan esperado:
+    |   - index range scan con leading prefix user_sucursal(id_user)
+    |     cubierto por unique(id_user, id_sucursal).
+    |   - FK id_sucursal en user_sucursal (generado por constrained()).
+    |   - FK id_empresa en sucursal.
+    |   - PK empresa.id.
+    |
+    | O(1) práctico. Sin cacheo.
+    |
+    */
+
+    private function obtenerEmpresaDelUsuario(
+        User $user
+    ): ?Empresa {
+        /** @var Empresa|null $empresa */
+        $empresa =
+            Empresa::query()
+                ->join(
+                    'sucursal',
+                    'sucursal.id_empresa',
+                    '=',
+                    'empresa.id'
+                )
+                ->join(
+                    'user_sucursal',
+                    'user_sucursal.id_sucursal',
+                    '=',
+                    'sucursal.id'
+                )
+                ->where(
+                    'user_sucursal.id_user',
+                    (int) $user->id
+                )
+                ->select(
+                    'empresa.*'
+                )
+                ->orderBy(
+                    'empresa.id'
+                )
+                ->first();
+
+        return $empresa;
     }
 }

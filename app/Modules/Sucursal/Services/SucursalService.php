@@ -7,6 +7,7 @@ namespace App\Modules\Sucursal\Services;
 use App\Shared\Models\Empresa;
 use App\Shared\Models\Sucursal;
 use App\Shared\Models\User;
+use App\Shared\Services\ApiTokenCipherService;   // ← NUEVO
 use App\Shared\Services\AppCacheService;
 use App\Shared\Services\ImageOptimizerService;
 use App\Shared\Traits\GeneraUrlArchivo;
@@ -23,18 +24,12 @@ class SucursalService
 {
     use GeneraUrlArchivo;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Directorio oficial de imágenes
-    |--------------------------------------------------------------------------
-    */
-
-    private const IMAGE_DIRECTORY =
-        'empresa/sucursales';
+    private const IMAGE_DIRECTORY = 'empresa/sucursales';
 
     public function __construct(
         private readonly ImageOptimizerService $imageOptimizer,
-        private readonly AppCacheService $cache
+        private readonly AppCacheService $cache,
+        private readonly ApiTokenCipherService $cipher,   // ← NUEVO
     ) {
     }
 
@@ -68,12 +63,12 @@ class SucursalService
 
         if (
             !empty(
-                $filtros['id_empresa']
-            )
+            $filtros['id_empresa']
+        )
         ) {
             $query->where(
                 'id_empresa',
-                (int)
+                (int) 
                 $filtros['id_empresa']
             );
         }
@@ -86,13 +81,13 @@ class SucursalService
 
         if (
             !empty(
-                $filtros['estado']
-            )
+            $filtros['estado']
+        )
         ) {
             $query->where(
                 'estado',
                 trim(
-                    (string)
+                    (string) 
                     $filtros['estado']
                 )
             );
@@ -106,12 +101,12 @@ class SucursalService
 
         if (
             !empty(
-                $filtros['buscar']
-            )
+            $filtros['buscar']
+        )
         ) {
             $buscar =
                 trim(
-                    (string)
+                    (string) 
                     $filtros['buscar']
                 );
 
@@ -220,7 +215,7 @@ class SucursalService
                 ->rememberForUser(
                     (int) $user->id,
                     'sucursales',
-                    fn (): Collection =>
+                    fn(): Collection =>
                         $user
                             ->sucursales()
                             ->where(
@@ -288,9 +283,7 @@ class SucursalService
                 $this->cacheKeyEmpresa(
                     $idEmpresa
                 ),
-                function () use (
-                    $idEmpresa
-                ): Collection {
+                function () use ($idEmpresa): Collection {
                     return Sucursal::deEmpresa(
                         $idEmpresa
                     )
@@ -311,12 +304,12 @@ class SucursalService
                             'imagen',
                         ])
                         ->map(
-                            fn (Sucursal $sucursal) => [
+                            fn(Sucursal $sucursal) => [
                                 'id' =>
                                     (int) $sucursal->id,
 
                                 'id_empresa' =>
-                                    (int)
+                                    (int) 
                                     $sucursal->id_empresa,
 
                                 'sucursal' =>
@@ -408,7 +401,7 @@ class SucursalService
         try {
             $sucursal =
                 DB::transaction(
-                    fn () =>
+                    fn() =>
                         Sucursal::query()
                             ->create(
                                 $datos
@@ -498,8 +491,8 @@ class SucursalService
             is_string(
                 $sucursal->imagen
             )
-                ? $sucursal->imagen
-                : null;
+            ? $sucursal->imagen
+            : null;
 
         $rutaNueva =
             null;
@@ -530,10 +523,7 @@ class SucursalService
 
         try {
             DB::transaction(
-                function () use (
-                    $sucursal,
-                    $datos
-                ): void {
+                function () use ($sucursal, $datos): void {
                     $sucursal->fill(
                         $datos
                     );
@@ -609,7 +599,7 @@ class SucursalService
         if (
             $rutaNueva !== null &&
             $rutaAnterior !==
-                $rutaNueva
+            $rutaNueva
         ) {
             $this->eliminarImagenLocal(
                 $rutaAnterior
@@ -662,8 +652,8 @@ class SucursalService
             is_string(
                 $sucursal->imagen
             )
-                ? $sucursal->imagen
-                : null;
+            ? $sucursal->imagen
+            : null;
 
         /*
         |--------------------------------------------------------------------------
@@ -672,9 +662,7 @@ class SucursalService
         */
 
         DB::transaction(
-            function () use (
-                $sucursal
-            ): void {
+            function () use ($sucursal): void {
                 $sucursal->delete();
             }
         );
@@ -747,7 +735,7 @@ class SucursalService
                 'id_user'
             )
             ->map(
-                fn ($id) =>
+                fn($id) =>
                     (int) $id
             )
             ->unique()
@@ -941,14 +929,89 @@ class SucursalService
             Storage::disk(
                 'public'
             )->exists(
-                $rutaSegura
-            )
+                    $rutaSegura
+                )
         ) {
             Storage::disk(
                 'public'
             )->delete(
-                $rutaSegura
-            );
+                    $rutaSegura
+                );
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sucursales del usuario con api_token
+    |--------------------------------------------------------------------------
+    |
+    | Se usa en /mi-empresa para devolver al front todas las sucursales
+    | del usuario (dentro de la empresa resuelta) junto con su token.
+    |
+    | No se cachea a propósito: el token debe reflejar el estado real
+    | de BD en cada request (cambiarlo en otro dispositivo debe verse
+    | de inmediato). El JOIN user_sucursal está indexado por
+    | unique(id_user, id_sucursal) → O(log n).
+    |
+    | Query resultante:
+    |   SELECT sucursal.*
+    |   FROM sucursal
+    |   INNER JOIN user_sucursal ON sucursal.id = user_sucursal.id_sucursal
+    |   WHERE user_sucursal.id_user = ?
+    |     AND sucursal.id_empresa = ?
+    |     AND sucursal.estado = 'Activo'
+    |   ORDER BY sucursal.sucursal ASC
+    |
+    */
+
+    public function listarSucursalesUsuarioConApiToken(
+        User $user,
+        int $idEmpresa
+    ): Collection {
+        return $user
+            ->sucursales()
+            ->with('empresa:id,empresa')          // ← AÑADIR
+            ->where('sucursal.id_empresa', $idEmpresa)
+            ->where('sucursal.estado', 'Activo')
+            ->orderBy('sucursal.sucursal')
+            ->get();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Actualizar o limpiar api_token
+    |--------------------------------------------------------------------------
+    |
+    | - null / '' → guarda NULL (limpiar).
+    | - otro valor → cifra y guarda.
+    |
+    */
+
+    public function actualizarApiToken(
+        Sucursal $sucursal,
+        ?string $plaintext
+    ): Sucursal {
+        if ($plaintext === null || $plaintext === '') {
+            $sucursal->forceFill(['api_token' => null])->save();
+        } else {
+            $encrypted = $this->cipher->encrypt($plaintext);
+
+            $sucursal->forceFill(['api_token' => $encrypted])->save();
+        }
+
+        return $sucursal->fresh();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Máscara del token
+    |--------------------------------------------------------------------------
+    */
+
+    public function maskedApiToken(Sucursal $sucursal): ?string
+    {
+        return empty($sucursal->api_token)
+            ? null
+            : $this->cipher->maskEncrypted((string) $sucursal->api_token);
     }
 }

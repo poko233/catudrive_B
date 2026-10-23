@@ -38,7 +38,7 @@ final class SecurityResponse
      */
     public static function forbidden(
         string $message =
-            'No tienes permiso para realizar esta acción.',
+        'No tienes permiso para realizar esta acción.',
         array $headers = [],
     ): JsonResponse {
         return self::error(
@@ -56,7 +56,7 @@ final class SecurityResponse
      */
     public static function inactiveUser(
         string $message =
-            'Tu usuario se encuentra inactivo.',
+        'Tu usuario se encuentra inactivo.',
         array $headers = [],
     ): JsonResponse {
         return self::error(
@@ -82,7 +82,7 @@ final class SecurityResponse
      */
     public static function tooManyRequests(
         string $message =
-            'Has realizado demasiadas solicitudes. Intenta nuevamente en unos momentos.',
+        'Has realizado demasiadas solicitudes. Intenta nuevamente en unos momentos.',
         array $headers = [],
     ): JsonResponse {
         return self::error(
@@ -103,7 +103,7 @@ final class SecurityResponse
      */
     public static function badRequest(
         string $message =
-            'La solicitud no es válida.',
+        'La solicitud no es válida.',
         array $headers = [],
     ): JsonResponse {
         return self::error(
@@ -113,7 +113,25 @@ final class SecurityResponse
             headers: $headers,
         );
     }
-
+    /**
+     * 404
+     *
+     * Recurso no encontrado o inaccesible para el usuario
+     * (usado también para cross-tenant para evitar enumeración).
+     *
+     * @param array<string, string> $headers
+     */
+    public static function notFound(
+        string $message = 'Recurso no encontrado.',
+        array $headers = [],
+    ): JsonResponse {
+        return self::error(
+            message: $message,
+            status: 404,
+            code: 'NOT_FOUND',
+            headers: $headers,
+        );
+    }
     /**
      * Constructor central de respuestas
      * relacionadas con seguridad.

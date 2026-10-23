@@ -42,6 +42,11 @@ class Sucursal extends Model
         'localidad',
         'imagen',
         'estado',
+        'api_token',
+    ];
+
+    protected $hidden = [      // ← AÑADIR bloque si no existe
+        'api_token',
     ];
 
     protected function casts(): array
@@ -74,5 +79,19 @@ class Sucursal extends Model
     protected function auditResourceName(): string
     {
         return 'Sucursal';
+    }
+    /*
+    |--------------------------------------------------------------------------
+    | Auditable: excluir api_token del audit log
+    |--------------------------------------------------------------------------
+    */
+    protected function auditIgnoredAttributes(): array    // ← AÑADIR si no existe
+    {
+        return [
+            'created_at',
+            'updated_at',
+            'remember_token',
+            'api_token',
+        ];
     }
 }

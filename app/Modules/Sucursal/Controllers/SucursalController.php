@@ -6,17 +6,21 @@ namespace App\Modules\Sucursal\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Sucursal\Requests\StoreSucursalRequest;
+use App\Modules\Sucursal\Requests\UpdateSucursalApiTokenRequest;   // ← NUEVO
 use App\Modules\Sucursal\Requests\UpdateSucursalRequest;
 use App\Modules\Sucursal\Resources\SucursalResource;
 use App\Modules\Sucursal\Services\SucursalService;
 use App\Shared\Models\Sucursal;
+use App\Shared\Security\SecurityResponse;                          // ← NUEVO
+use App\Shared\Services\ApiTokenCipherService;                     // ← NUEVO
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SucursalController extends Controller
 {
     public function __construct(
-        private readonly SucursalService $service
+        private readonly SucursalService $service,
+        private readonly ApiTokenCipherService $cipher,   // ← NUEVO
     ) {
     }
 
@@ -39,7 +43,7 @@ class SucursalController extends Controller
             'data' =>
                 $sucursales
                     ->map(
-                        fn (Sucursal $sucursal) => [
+                        fn(Sucursal $sucursal) => [
                             'id' =>
                                 (int) $sucursal->id,
 
@@ -194,5 +198,101 @@ class SucursalController extends Controller
             'message' =>
                 'Sucursal eliminada correctamente.',
         ]);
+    }
+    /**
+     * PATCH /api/sucursales/{sucursal}/api-token
+     *
+     * Body:
+     *   { "api_token": "..." }  → cifra y guarda.
+     *   { "api_token": null }   → limpia (NULL).
+     *
+     * Nunca devuelve el token en claro ni cifrado. Solo la máscara.
+     */
+    public function updateApiToken(
+        UpdateSucursalApiTokenRequest $request,
+        Sucursal $sucursal
+    ): JsonResponse {
+        $denied = $this->denegarSiNoPertenece($request, $sucursal);
+
+        if ($denied !== null) {
+            return $denied;
+        }
+
+        /** @var string|null $plaintext */
+        $plaintext = $request->validated('api_token');
+
+        $sucursal = $this->service->actualizarApiToken(
+            $sucursal,
+            $plaintext
+        );
+
+        $hasToken = !empty($sucursal->api_token);
+
+        $masked = $hasToken
+            ? $this->cipher->maskEncrypted((string) $sucursal->api_token)
+            : null;
+
+        return response()->json([
+            'success' => true,
+
+            'message' => $hasToken
+                ? 'Token actualizado correctamente.'
+                : 'Token eliminado correctamente.',
+
+            'data' => [
+                'has_api_token' => $hasToken,
+                'api_token_masked' => $masked,
+            ],
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cierre de IDOR
+    |--------------------------------------------------------------------------
+    |
+    | - Super-admin (rbac.super_roles) → bypass.
+    | - Resto → debe pertenecer a la sucursal vía user_sucursal.
+    | - Si no → 404 (no 403, para evitar enumeración cross-tenant).
+    |
+    */
+
+    private function denegarSiNoPertenece(
+        Request $request,
+        Sucursal $sucursal
+    ): ?JsonResponse {
+        $user = $request->user();
+
+        if ($user === null) {
+            return SecurityResponse::unauthenticated();
+        }
+
+        $superRoles = array_values(
+            array_filter(
+                (array) config('rbac.super_roles', []),
+                static fn($role) =>
+                    is_string($role) && trim($role) !== ''
+            )
+        );
+
+        if (
+            $superRoles !== [] &&
+            $user->hasAnyRole($superRoles)
+        ) {
+            return null;
+        }
+
+        $pertenece = $user
+            ->sucursales()
+            ->where('sucursal.id', $sucursal->id)
+            ->exists();
+
+        if (!$pertenece) {
+            return SecurityResponse::notFound(
+                'Sucursal no encontrada.'
+            );
+        }
+
+        return null;
     }
 }

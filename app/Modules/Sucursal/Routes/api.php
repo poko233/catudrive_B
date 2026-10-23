@@ -107,6 +107,17 @@ Route::middleware([
                 'throttle:delete',
             ])
             ->name('sucursales.destroy');
+
+        Route::patch(
+            '/{sucursal}/api-token',
+            'updateApiToken'
+        )
+            ->whereNumber('sucursal')
+            ->middleware([
+                'permiso:Configuracion,Empresa,Editar',
+                'throttle:sensitive',
+            ])
+            ->name('sucursales.api-token.update');
     });
 
 /*
